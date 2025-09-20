@@ -2,25 +2,23 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
+import { seedDatabase } from './services/dataSeeder'; // 1. Import the seeder
 
-// This function starts the mock service worker
+// MSW Integration
 async function enableMocking() {
   if (process.env.NODE_ENV !== 'development') {
     return;
   }
 
-  // Now, this import will successfully find the named 'worker' export
   const { worker } = await import('./mocks/browser.js');
-
-  // And this line will no longer cause an error
   return worker.start();
 }
+enableMocking().then(async () => {
 
-// Render the app after the mock server is ready
-enableMocking().then(() => {
+  // check the database and add data ONLY if it's empty.
+  await seedDatabase();
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-      
       <App />
     </React.StrictMode>
   );

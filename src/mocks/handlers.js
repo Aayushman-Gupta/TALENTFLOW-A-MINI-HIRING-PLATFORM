@@ -8,12 +8,6 @@ const simulateNetwork = async () => {
 };
 
 export const handlers = [
-
-  /**
-   * == GET /api/jobs ==
-   * Fetches jobs from the Dexie database.
-   * IMPROVED: Search now also checks the description and requirements fields.
-   */
   http.get('/api/jobs', async ({ request }) => {
     await simulateNetwork();
     const url = new URL(request.url);
@@ -21,10 +15,7 @@ export const handlers = [
     const titleSearch = url.searchParams.get('title');
 
     try {
-      // Start with a query ordered by the 'order' index for efficiency
       let query = db.jobs.orderBy('order');
-
-      // If a status filter is provided, apply it using the 'status' index
       if (status) {
         query = query.filter(job => job.status === status);
       }
@@ -36,8 +27,7 @@ export const handlers = [
         const searchTerm = titleSearch.toLowerCase();
         jobs = jobs.filter(job =>
           job.title.toLowerCase().includes(searchTerm)
-          //  || (job.description && job.description.toLowerCase().includes(searchTerm)) || // Check description
-          // (job.requirements && job.requirements.toLowerCase().includes(searchTerm)) // Check requirements
+
         );
       }
 
@@ -48,19 +38,13 @@ export const handlers = [
     }
   }),
 
-  /**
-   * == POST /api/jobs ==
-   * Creates a new job and saves it to the Dexie database.
-   * IMPROVED: Ensures all fields from the frontend, including description and requirements, are saved.
-   */
   http.post('/api/jobs', async ({ request }) => {
     await simulateNetwork();
     try {
       const newJobData = await request.json();
       const jobCount = await db.jobs.count();
 
-      // The newJob object is created by spreading all properties from the request body.
-      // This automatically includes 'description', 'requirements', and any other fields sent.
+      // 1. Create the new job as before
       const newJob = {
         id: crypto.randomUUID(),
         status: 'active',
@@ -69,9 +53,30 @@ export const handlers = [
         updatedAt: new Date().toISOString(),
         ...newJobData,
       };
-
-      // The 'add' method saves the entire object to the 'jobs' table in Dexie.
       await db.jobs.add(newJob);
+
+      // --- NEW LOGIC STARTS HERE ---
+      // 2. Find a random candidate to create an application
+      const allCandidates = await db.candidates.toArray();
+      if (allCandidates.length > 0) {
+        const randomCandidate = allCandidates[Math.floor(Math.random() * allCandidates.length)];
+
+        // 3. Create the new application object
+        const newApplication = {
+          id: crypto.randomUUID(),
+          jobId: newJob.id, // Link to the job we just created
+          candidateId: randomCandidate.id, // Link to the random candidate
+          stage: 'applied', // Initial stage is 'applied'
+          appliedAt: new Date().toISOString(), // Application time is now
+        };
+
+        // 4. Save the new application to the database
+        await db.applications.add(newApplication);
+        console.log(`Created a new application for job '${newJob.title}' from candidate '${randomCandidate.name}'.`);
+      }
+      // --- NEW LOGIC ENDS HERE ---
+
+      // 5. Return the created job to the frontend as before
       return HttpResponse.json(newJob, { status: 201 });
 
     } catch (error) {
@@ -80,17 +85,12 @@ export const handlers = [
     }
   }),
 
-  /**
-   * == PATCH /api/jobs/:id ==
-   * Updates an existing job in the Dexie database.
-   * IMPROVED: Correctly handles updates to any field, including description and requirements.
-   */
+
   http.patch('/api/jobs/:id', async ({ request, params }) => {
     await simulateNetwork();
     try {
       const { id } = params;
-      const updates = await request.json(); // 'updates' can contain description, requirements, etc.
-
+      const updates = await request.json();
       // Dexie's 'update' method will merge the 'updates' object with the existing job data.
       const updatedCount = await db.jobs.update(id, {
         ...updates,
@@ -130,8 +130,7 @@ export const handlers = [
    http.post('/api/jobs/reorder', async ({ request }) => {
     await simulateNetwork();
     try {
-      const { orderedIds } = await request.json(); // e.g., ['job-3', 'job-1', 'job-2']
-
+      const { orderedIds } = await request.json();
       // Use a Dexie transaction to update all jobs at once for efficiency
       await db.transaction('rw', db.jobs, async () => {
         const updates = orderedIds.map((id, index) =>
@@ -144,6 +143,64 @@ export const handlers = [
     } catch (error) {
       console.error("MSW Handler Error (POST /api/jobs/reorder):", error);
       return HttpResponse.json({ message: 'Failed to reorder jobs' }, { status: 500 });
+    }
+  }),
+
+  http.get('/api/candidates', async () => {
+    await simulateNetwork(); // Simulate network delay
+    try {
+      const candidates = await db.candidates.toArray();
+      return HttpResponse.json(candidates);
+    } catch (error) {
+      console.error("MSW Handler Error (GET /api/candidates):", error);
+      return HttpResponse.json({ message: 'Failed to fetch candidates' }, { status: 500 });
+    }
+  }),
+
+   http.get('/api/applications', async ({ request }) => {
+    await simulateNetwork();
+    const url = new URL(request.url);
+    const jobId = url.searchParams.get('jobId');
+
+    if (!jobId) {
+      return HttpResponse.json({ message: 'jobId is required' }, { status: 400 });
+    }
+
+    try {
+      // 1. Find all applications for the given job
+      const applications = await db.applications.where('jobId').equals(jobId).toArray();
+
+      // 2. Get the IDs of all candidates who have applied
+      const candidateIds = applications.map(app => app.candidateId);
+
+      // 3. Fetch the full details for those candidates
+      const candidates = await db.candidates.where('id').anyOf(candidateIds).toArray();
+      const candidateMap = new Map(candidates.map(c => [c.id, c]));
+
+      // 4. Combine the application data with the candidate's name and email
+      const enrichedApplications = applications.map(app => ({
+        ...app,
+        candidate: candidateMap.get(app.candidateId) || null,
+      }));
+
+      return HttpResponse.json(enrichedApplications);
+    } catch (error) {
+      return HttpResponse.json({ message: 'Failed to fetch applications' }, { status: 500 });
+    }
+  }),
+
+  http.patch('/api/applications/:id', async ({ request, params }) => {
+    await simulateNetwork();
+    try {
+      const { id } = params;
+      const updates = await request.json(); // e.g., { stage: 'screen' }
+
+      await db.applications.update(id, updates);
+      const updatedApplication = await db.applications.get(id);
+
+      return HttpResponse.json(updatedApplication);
+    } catch (error) {
+      return HttpResponse.json({ message: 'Failed to update application' }, { status: 500 });
     }
   }),
 
