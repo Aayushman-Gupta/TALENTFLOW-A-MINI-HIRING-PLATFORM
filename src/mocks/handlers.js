@@ -35,9 +35,9 @@ export const handlers = [
       if (titleSearch) {
         const searchTerm = titleSearch.toLowerCase();
         jobs = jobs.filter(job =>
-          job.title.toLowerCase().includes(searchTerm) ||
-          (job.description && job.description.toLowerCase().includes(searchTerm)) || // Check description
-          (job.requirements && job.requirements.toLowerCase().includes(searchTerm)) // Check requirements
+          job.title.toLowerCase().includes(searchTerm)
+          //  || (job.description && job.description.toLowerCase().includes(searchTerm)) || // Check description
+          // (job.requirements && job.requirements.toLowerCase().includes(searchTerm)) // Check requirements
         );
       }
 
@@ -126,4 +126,25 @@ export const handlers = [
       return HttpResponse.json({ message: 'Failed to access database' }, { status: 500 });
     }
   }),
+
+   http.post('/api/jobs/reorder', async ({ request }) => {
+    await simulateNetwork();
+    try {
+      const { orderedIds } = await request.json(); // e.g., ['job-3', 'job-1', 'job-2']
+
+      // Use a Dexie transaction to update all jobs at once for efficiency
+      await db.transaction('rw', db.jobs, async () => {
+        const updates = orderedIds.map((id, index) =>
+          db.jobs.update(id, { order: index + 1 })
+        );
+        await Promise.all(updates);
+      });
+
+      return HttpResponse.json({ message: 'Reorder successful' });
+    } catch (error) {
+      console.error("MSW Handler Error (POST /api/jobs/reorder):", error);
+      return HttpResponse.json({ message: 'Failed to reorder jobs' }, { status: 500 });
+    }
+  }),
+
 ];
