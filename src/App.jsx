@@ -3,6 +3,7 @@ import './App.css';
 import LoginPage from './components/LoginPage';
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { DashBoardPage } from './components/DashBoard';
+import JobDetailPage from './components/jobs/JobDetailPage';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashBoardPage />} />
+        <Route path="/jobs/:jobId" element={<JobDetailPage />} />
       </Routes>
     </BrowserRouter>
   )
