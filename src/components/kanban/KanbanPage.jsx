@@ -6,14 +6,14 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  closestCenter,
 } from "@dnd-kit/core";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import { CandidateCard } from "./CandidateCard";
-import Toast from "../jobs/Toast"; // Assuming this is the correct path
+import Toast from "../jobs/Toast";
 
-// --- API Service ---
+// --- API Service (assuming it exists) ---
 const api = {
   async getJobDetails(jobId) {
     const response = await fetch(`/api/jobs/${jobId}`);
@@ -58,8 +58,13 @@ export default function KanbanPage() {
   });
   const { jobId } = useParams();
 
+  // Simplified sensor configuration
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3
+      }
+    })
   );
 
   useEffect(() => {
@@ -83,11 +88,9 @@ export default function KanbanPage() {
 
   const applicationsByStage = useMemo(() => {
     const grouped = {};
-    STAGES.forEach((stage) => {
-      grouped[stage] = [];
-    });
+    STAGES.forEach((stage) => (grouped[stage] = []));
     applications.forEach((app) => {
-      if (app && app.stage && grouped[app.stage]) {
+      if (app?.stage && grouped[app.stage]) {
         grouped[app.stage].push(app);
       }
     });
@@ -95,36 +98,57 @@ export default function KanbanPage() {
   }, [applications]);
 
   const handleDragStart = (event) => {
-    setActiveApplication(
-      applications.find((app) => app.id === event.active.id) || null
-    );
+    console.log("Drag started:", event.active.id);
+    const draggedApp = applications.find((app) => app.id === event.active.id);
+    setActiveApplication(draggedApp);
   };
 
   const handleDragEnd = async (event) => {
+    console.log("Drag ended:", event);
     const { active, over } = event;
+
     setActiveApplication(null);
 
-    if (!over) return;
-
-    const activeId = active.id;
-    const activeApp = applications.find((app) => app.id === activeId);
-    if (!activeApp) return;
-
-    // Find the stage of the column the card was dropped over
-    const overStage =
-      STAGES.find((stage) =>
-        applicationsByStage[stage].some((app) => app.id === over.id)
-      ) || over.id;
-
-    if (activeApp.stage === overStage) {
-      return; // No change if dropped in the same column
+    if (!over) {
+      console.log("No drop target found");
+      return;
     }
 
-    const originalStageIndex = STAGES.indexOf(activeApp.stage);
-    const newStageIndex = STAGES.indexOf(overStage);
+    console.log("Active ID:", active.id, "Over ID:", over.id);
 
-    // Enforce the "progress only" rule (can't move backwards)
-    if (newStageIndex < originalStageIndex) {
+    const activeApp = applications.find((app) => app.id === active.id);
+    if (!activeApp) {
+      console.log("Could not find active application");
+      return;
+    }
+
+    // Simple logic: if over.id is a stage, use it directly
+    // If over.id is an application, find which stage it belongs to
+    let newStage = over.id;
+
+    if (!STAGES.includes(over.id)) {
+      // We're dropping on an application, find its stage
+      const overApp = applications.find(app => app.id === over.id);
+      if (overApp) {
+        newStage = overApp.stage;
+      } else {
+        console.log("Could not determine target stage");
+        return;
+      }
+    }
+
+    console.log("Current stage:", activeApp.stage, "New stage:", newStage);
+
+    if (activeApp.stage === newStage) {
+      console.log("Same stage, no change needed");
+      return;
+    }
+
+    // Optional: Prevent moving backwards
+    const currentIndex = STAGES.indexOf(activeApp.stage);
+    const newIndex = STAGES.indexOf(newStage);
+
+    if (newIndex < currentIndex) {
       setNotification({
         show: true,
         message: "Cannot move candidate to a previous stage.",
@@ -133,27 +157,29 @@ export default function KanbanPage() {
       return;
     }
 
-    // --- This is the corrected logic ---
-    // 1. Optimistic UI Update: Immediately move the card in the UI
-    const originalApplications = [...applications];
-    setApplications((prevApps) =>
-      prevApps.map((app) =>
-        app.id === activeId ? { ...app, stage: overStage } : app
-      )
+    // Update local state immediately
+    const updatedApplications = applications.map(app =>
+      app.id === active.id ? { ...app, stage: newStage } : app
     );
+    setApplications(updatedApplications);
 
-    // 2. API Call: Persist the change to the database
     try {
-      await api.updateApplication(activeId, { stage: overStage });
+      await api.updateApplication(active.id, { stage: newStage });
       setNotification({
         show: true,
-        message: `Candidate moved to ${STAGE_NAMES[overStage]}`,
+        message: `Candidate moved to ${STAGE_NAMES[newStage]}`,
         type: "success",
       });
+      console.log("Successfully updated application stage");
     } catch (error) {
-      setNotification({ show: true, message: error.message, type: "error" });
-      // 3. Rollback on Failure: If the API call fails, revert the UI to its original state
-      setApplications(originalApplications);
+      console.error("Failed to update application:", error);
+      // Revert on error
+      setApplications(applications);
+      setNotification({
+        show: true,
+        message: error.message,
+        type: "error"
+      });
     }
   };
 
@@ -183,16 +209,14 @@ export default function KanbanPage() {
           <span className="text-purple-400">{job?.title}</span>
         </h1>
       </header>
-
-      <main className="flex-grow p-6 overflow-y-auto">
+      <main className="flex-grow p-6 overflow-x-auto">
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          {/* --- THIS IS THE NEW RESPONSIVE GRID LAYOUT --- */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 min-w-max">
             {STAGES.map((stage) => (
               <KanbanColumn
                 key={stage}
@@ -204,7 +228,10 @@ export default function KanbanPage() {
           </div>
           <DragOverlay>
             {activeApplication ? (
-              <CandidateCard application={activeApplication} isOverlay />
+              <CandidateCard
+                application={activeApplication}
+                isOverlay={true}
+              />
             ) : null}
           </DragOverlay>
         </DndContext>

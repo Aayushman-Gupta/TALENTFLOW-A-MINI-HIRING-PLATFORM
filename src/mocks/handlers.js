@@ -55,27 +55,37 @@ export const handlers = [
       };
       await db.jobs.add(newJob);
 
-      // random candidate to create an application
+      // --- THIS IS THE CORRECTED LOGIC ---
       const allCandidates = await db.candidates.toArray();
+
       if (allCandidates.length > 0) {
-        const randomCandidate = allCandidates[Math.floor(Math.random() * allCandidates.length)];
+        // 2. Determine a random number of applications to create.
+        //    The number will be between 1 and the total number of candidates available.
+        const numberOfApplications = faker.number.int({
+            min: 1,
+            max: allCandidates.length
+        });
 
-        // 3. Create the new application object
-        const newApplication = {
+        // 3. Select a unique, random subset of candidates.
+        //    faker.helpers.arrayElements is perfect for this.
+        const selectedCandidates = faker.helpers.arrayElements(allCandidates, numberOfApplications);
+
+        // 4. Create an application object for each selected candidate.
+        const newApplications = selectedCandidates.map(candidate => ({
           id: crypto.randomUUID(),
-          jobId: newJob.id, // Link to the job we just created
-          candidateId: randomCandidate.id, // Link to the random candidate
-          stage: 'applied', // Initial stage is 'applied'
-          appliedAt: new Date().toISOString(), // Application time is now
-        };
+          jobId: newJob.id,
+          candidateId: candidate.id,
+          stage: 'applied',
+          appliedAt: new Date().toISOString(),
+        }));
 
-        // 4. Save the new application to the database
-        await db.applications.add(newApplication);
-        console.log(`Created a new application for job '${newJob.title}' from candidate '${randomCandidate.name}'.`);
+        // 5. Save all new applications to the database.
+        if (newApplications.length > 0) {
+            await db.applications.bulkAdd(newApplications);
+            console.log(`SUCCESS: Created ${newApplications.length} new applications for job '${newJob.title}'.`);
+        }
       }
-      // --- NEW LOGIC ENDS HERE ---
-
-      // 5. Return the created job to the frontend as before
+      // 6. Return the created job to the frontend.
       return HttpResponse.json(newJob, { status: 201 });
 
     } catch (error) {
@@ -83,7 +93,6 @@ export const handlers = [
       return HttpResponse.json({ message: 'Failed to create job in database' }, { status: 500 });
     }
   }),
-
 
   http.patch('/api/jobs/:id', async ({ request, params }) => {
     await simulateNetwork();
