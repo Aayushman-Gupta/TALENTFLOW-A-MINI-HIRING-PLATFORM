@@ -176,15 +176,29 @@ export default function JobDetailPage() {
         to={`/jobs/${job.id}/applications`}
         className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
-            <Eye size={18} className="mr-2" />
-            View Applications
+              <Eye size={18} className="mr-2" />
+              View Applications
           </Link>
           <button
             onClick={() => setIsEditModalOpen(true)}
             className="flex items-center bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
+
             <Edit3 size={18} className="mr-2" /> Edit Job
           </button>
+
+          {/* kanban button */}
+
+          <Link
+            to={`/jobs/${job.id}/kanban`}
+            className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                  <Eye size={18}  className="mr-2"/>
+                  View Kanban Board
+          </Link>
+
+          {/* kanban button ends */}
+          
           <button
             onClick={handleToggleStatus}
             className="flex items-center bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"

@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { DashBoardPage } from './components/DashBoard';
 import JobDetailPage from './components/jobs/JobDetailPage';
 import ApplicationsPage from './components/applications/ApplicationPage';
+import KanbanPage from './components/kanban/KanbanPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/dashboard" element={<DashBoardPage />} />
         <Route path="/jobs/:jobId" element={<JobDetailPage />} />
         <Route path="/jobs/:jobId/applications" element={<ApplicationsPage />} />
+        <Route path="/jobs/:jobId/kanban" element={<KanbanPage />} />
       </Routes>
     </BrowserRouter>
   )
