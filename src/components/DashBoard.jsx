@@ -23,12 +23,14 @@ import { SortableJobCard } from "./jobs/SortableJobCard";
 
 // --- API Service Functions (Assuming these are defined elsewhere) ---
 const api = {
+
   async getJobs(filters) {
     const query = new URLSearchParams(filters).toString();
     const response = await fetch(`/api/jobs?${query}`);
     if (!response.ok) throw new Error("Failed to fetch jobs");
     return response.json();
   },
+
   async createJob(jobData) {
     const response = await fetch("/api/jobs", {
       method: "POST",
@@ -38,6 +40,8 @@ const api = {
     if (!response.ok) throw new Error("Failed to create job");
     return response.json();
   },
+
+  
   async reorderJobs(orderedIds) {
     const response = await fetch("/api/jobs/reorder", {
       method: "POST",

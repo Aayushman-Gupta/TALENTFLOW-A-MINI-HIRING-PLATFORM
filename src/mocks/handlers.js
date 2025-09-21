@@ -55,8 +55,7 @@ export const handlers = [
       };
       await db.jobs.add(newJob);
 
-      // --- NEW LOGIC STARTS HERE ---
-      // 2. Find a random candidate to create an application
+      // random candidate to create an application
       const allCandidates = await db.candidates.toArray();
       if (allCandidates.length > 0) {
         const randomCandidate = allCandidates[Math.floor(Math.random() * allCandidates.length)];
