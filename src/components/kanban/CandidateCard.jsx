@@ -1,7 +1,6 @@
 import React from "react";
-import { useDraggable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Mail } from "lucide-react";
 
 export function CandidateCard({ application, isOverlay }) {
   const {
@@ -9,67 +8,43 @@ export function CandidateCard({ application, isOverlay }) {
     listeners,
     setNodeRef,
     transform,
+    transition,
     isDragging,
-  } = useDraggable({
+  } = useSortable({
     id: application.id,
+    // **UPDATED**: Adding the stageId here is key.
     data: {
-      type: 'application',
-      application: application,
-      stage: application.stage
-    }
+      type: "Application",
+      application,
+      stageId: application.stage,
+    },
   });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    boxShadow: isOverlay
+      ? "0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1)"
+      : "none",
+    cursor: "grab",
   };
 
-  // Overlay version (what you see while dragging)
-  if (isOverlay) {
-    return (
-      <div className="bg-gray-700 p-3 rounded-lg border border-purple-500 shadow-2xl w-64 opacity-95">
-        <div className="flex items-start">
-          <div className="cursor-grabbing p-1 text-purple-400">
-            <GripVertical size={16} />
-          </div>
-          <div className="ml-2 flex-grow">
-            <div className="font-semibold text-sm text-white">
-              {application.candidate?.name || 'Unknown Candidate'}
-            </div>
-            <div className="text-xs text-gray-300 flex items-center mt-1">
-              <Mail size={12} className="mr-1.5" />
-              {application.candidate?.email || 'No email'}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const candidate = application.candidate || {
+    name: "Unknown Candidate",
+    email: "no-email@provided.com",
+  };
 
-  // Regular card version
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 transition-all cursor-pointer ${
-        isDragging ? 'opacity-50 rotate-2 scale-105' : 'opacity-100'
-      }`}
       {...attributes}
       {...listeners}
+      className="rounded-lg border border-gray-700 bg-gray-800 p-3 text-sm shadow-sm transition-shadow duration-200 hover:border-gray-600"
     >
-      <div className="flex items-start">
-        <div className="cursor-grab p-1 text-gray-500 hover:text-white">
-          <GripVertical size={16} />
-        </div>
-        <div className="ml-2 flex-grow">
-          <p className="font-semibold text-sm text-white">
-            {application.candidate?.name || 'Unknown Candidate'}
-          </p>
-          <p className="text-xs text-gray-400 flex items-center mt-1">
-            <Mail size={12} className="mr-1.5" />
-            {application.candidate?.email || 'No email'}
-          </p>
-        </div>
-      </div>
+      <p className="font-bold text-gray-100">{candidate.name}</p>
+      <p className="truncate text-xs text-gray-400">{candidate.email}</p>
     </div>
   );
 }

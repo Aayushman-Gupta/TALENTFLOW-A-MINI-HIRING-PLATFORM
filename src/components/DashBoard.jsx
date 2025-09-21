@@ -335,7 +335,6 @@ export const DashBoardPage = () => {
 
 // --- MODIFIED & SIMPLIFIED JobCard Component ---
 const JobCard = ({ job }) => {
-  // const navigate = useNavigate();
   return (
     <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6 hover:shadow-xl hover:border-blue-500 hover:scale-[1.02] transform transition-all duration-300 cursor-pointer"
 

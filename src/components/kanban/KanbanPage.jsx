@@ -6,14 +6,15 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  // 1. IMPORT the new collision strategy
+  rectIntersection,
 } from "@dnd-kit/core";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { KanbanColumn } from "./KanbanColumn";
 import { CandidateCard } from "./CandidateCard";
-import Toast from "../jobs/Toast";
+import Toast from "../jobs/Toast"; // Assuming this is the correct path
 
-// --- API Service (assuming it exists) ---
+// --- API Service (assuming this is in a separate file) ---
 const api = {
   async getJobDetails(jobId) {
     const response = await fetch(`/api/jobs/${jobId}`);
@@ -58,14 +59,14 @@ export default function KanbanPage() {
   });
   const { jobId } = useParams();
 
-  // Simplified sensor configuration
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 3
-      }
+      // Add a small activation delay to distinguish clicks from drags
+      activationConstraint: { distance: 8 },
     })
   );
+
+  const [originalApplications, setOriginalApplications] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -77,6 +78,7 @@ export default function KanbanPage() {
         ]);
         setJob(jobData);
         setApplications(appsData);
+        setOriginalApplications(appsData);
       } catch (error) {
         setNotification({ show: true, message: error.message, type: "error" });
       } finally {
@@ -88,9 +90,11 @@ export default function KanbanPage() {
 
   const applicationsByStage = useMemo(() => {
     const grouped = {};
-    STAGES.forEach((stage) => (grouped[stage] = []));
+    STAGES.forEach((stage) => {
+      grouped[stage] = [];
+    });
     applications.forEach((app) => {
-      if (app?.stage && grouped[app.stage]) {
+      if (app && app.stage && grouped.hasOwnProperty(app.stage)) {
         grouped[app.stage].push(app);
       }
     });
@@ -98,109 +102,108 @@ export default function KanbanPage() {
   }, [applications]);
 
   const handleDragStart = (event) => {
-    console.log("Drag started:", event.active.id);
-    const draggedApp = applications.find((app) => app.id === event.active.id);
-    setActiveApplication(draggedApp);
+    const app = applications.find((app) => app.id === event.active.id);
+    setActiveApplication(app || null);
+    // Snapshot the state at the beginning of the drag
+    setOriginalApplications(applications);
+  };
+
+  // **UPDATED LOGIC** for immutable state updates
+  const handleDragOver = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    // The stageId is derived from the droppable column's id
+    const overStage = over.data.current?.stageId;
+    const activeApp = applications.find((app) => app.id === active.id);
+
+    if (!activeApp || !overStage || activeApp.stage === overStage) {
+      return;
+    }
+
+    // This function provides a smooth visual update as the user drags an item over a new column.
+    // It updates the state optimistically. handleDragEnd will handle API calls and rollbacks.
+    setApplications((prevApps) => {
+      // Using .map ensures we return a new array, which is crucial for React state updates.
+      // This prevents direct mutation of the state.
+      return prevApps.map((app) => {
+        if (app.id === active.id) {
+          // Create a new object for the updated application
+          return { ...app, stage: overStage };
+        }
+        return app;
+      });
+    });
   };
 
   const handleDragEnd = async (event) => {
-    console.log("Drag ended:", event);
+    setActiveApplication(null);
     const { active, over } = event;
 
-    setActiveApplication(null);
+    // Find the original stage from before the drag started
+    const originalApp = originalApplications.find(
+      (app) => app.id === active.id
+    );
+    const originalStage = originalApp?.stage;
 
-    if (!over) {
-      console.log("No drop target found");
+    // Find the stage being dropped over
+    const overStage = over?.data.current?.stageId;
+
+    // If dropped in the same place, or outside a valid column, revert to the original state
+    if (!over || !overStage || originalStage === overStage) {
+      setApplications(originalApplications);
       return;
     }
 
-    console.log("Active ID:", active.id, "Over ID:", over.id);
+    // Validate the move (e.g., can't go backwards, except to 'rejected')
+    const originalStageIndex = STAGES.indexOf(originalStage);
+    const newStageIndex = STAGES.indexOf(overStage);
 
-    const activeApp = applications.find((app) => app.id === active.id);
-    if (!activeApp) {
-      console.log("Could not find active application");
-      return;
-    }
-
-    // Simple logic: if over.id is a stage, use it directly
-    // If over.id is an application, find which stage it belongs to
-    let newStage = over.id;
-
-    if (!STAGES.includes(over.id)) {
-      // We're dropping on an application, find its stage
-      const overApp = applications.find(app => app.id === over.id);
-      if (overApp) {
-        newStage = overApp.stage;
-      } else {
-        console.log("Could not determine target stage");
-        return;
-      }
-    }
-
-    console.log("Current stage:", activeApp.stage, "New stage:", newStage);
-
-    if (activeApp.stage === newStage) {
-      console.log("Same stage, no change needed");
-      return;
-    }
-
-    // Optional: Prevent moving backwards
-    const currentIndex = STAGES.indexOf(activeApp.stage);
-    const newIndex = STAGES.indexOf(newStage);
-
-    if (newIndex < currentIndex) {
+    if (newStageIndex < originalStageIndex && overStage !== "rejected") {
       setNotification({
         show: true,
         message: "Cannot move candidate to a previous stage.",
         type: "error",
       });
+      setApplications(originalApplications); // Revert on invalid move
       return;
     }
 
-    // Update local state immediately
-    const updatedApplications = applications.map(app =>
-      app.id === active.id ? { ...app, stage: newStage } : app
-    );
-    setApplications(updatedApplications);
-
+    // The UI state is already correct from handleDragOver, now persist the change
     try {
-      await api.updateApplication(active.id, { stage: newStage });
+      await api.updateApplication(active.id, { stage: overStage });
       setNotification({
         show: true,
-        message: `Candidate moved to ${STAGE_NAMES[newStage]}`,
+        message: `Candidate moved to ${STAGE_NAMES[overStage]}`,
         type: "success",
       });
-      console.log("Successfully updated application stage");
+      // API call succeeded, so the current optimistic state becomes the new source of truth
+      setOriginalApplications(applications);
     } catch (error) {
-      console.error("Failed to update application:", error);
-      // Revert on error
-      setApplications(applications);
-      setNotification({
-        show: true,
-        message: error.message,
-        type: "error"
-      });
+      setNotification({ show: true, message: error.message, type: "error" });
+      // If the API call fails, revert the UI to its state before the drag started
+      setApplications(originalApplications);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <LoaderCircle size={48} className="text-blue-500 animate-spin" />
+      <div className="flex h-screen items-center justify-center bg-gray-900">
+        <LoaderCircle size={48} className="animate-spin text-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="flex h-screen flex-col bg-gray-900 text-white">
       <Toast
         notification={notification}
         onClose={() => setNotification({ ...notification, show: false })}
       />
-      <header className="bg-gray-800 shadow-lg border-b border-gray-700 px-6 py-4 flex-shrink-0">
+      <header className="flex-shrink-0 border-b border-gray-700 bg-gray-800 px-6 py-4 shadow-lg">
         <Link
           to={`/jobs/${jobId}`}
-          className="flex items-center text-blue-400 hover:text-blue-300 mb-4 group w-fit"
+          className="group mb-4 flex w-fit items-center text-blue-400 hover:text-blue-300"
         >
           <ArrowLeft size={18} className="mr-2" /> Back to Job Details
         </Link>
@@ -209,29 +212,28 @@ export default function KanbanPage() {
           <span className="text-purple-400">{job?.title}</span>
         </h1>
       </header>
-      <main className="flex-grow p-6 overflow-x-auto">
+
+      <main className="flex-grow overflow-x-auto p-4 md:p-6">
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={rectIntersection}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 min-w-max">
+          <div className="mx-auto grid max-w-screen-2xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {STAGES.map((stage) => (
               <KanbanColumn
                 key={stage}
                 id={stage}
                 title={STAGE_NAMES[stage]}
-                applications={applicationsByStage[stage]}
+                applications={applicationsByStage[stage] || []}
               />
             ))}
           </div>
           <DragOverlay>
             {activeApplication ? (
-              <CandidateCard
-                application={activeApplication}
-                isOverlay={true}
-              />
+              <CandidateCard application={activeApplication} isOverlay />
             ) : null}
           </DragOverlay>
         </DndContext>
