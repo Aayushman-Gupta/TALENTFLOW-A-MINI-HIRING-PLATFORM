@@ -201,15 +201,55 @@ export const handlers = [
     await simulateNetwork();
     try {
       const { id } = params;
-      const updates = await request.json(); // e.g., { stage: 'screen' }
+      const updates = await request.json(); // This contains the new stage, e.g., { stage: 'screen' }
 
+      // Step A: Fetch the application's current state BEFORE we change it.
+      // This is crucial for knowing what the 'previousStage' was.
+      const currentApplication = await db.applications.get(id);
+      if (!currentApplication) {
+        return HttpResponse.json({ message: 'Application not found' }, { status: 404 });
+      }
+      const previousStage = currentApplication.stage;
+
+      // Step B: Create the new history record object with all the required data.
+      const timelineEntry = {
+        candidateId: currentApplication.candidateId,
+        jobId: currentApplication.jobId,
+        previousStage: previousStage,
+        newStage: updates.stage,
+        timestamp: new Date().toISOString(),
+      };
+
+      await db.candidateTimeline.add(timelineEntry);
       await db.applications.update(id, updates);
+
       const updatedApplication = await db.applications.get(id);
+
+      // A log to confirm in the browser console that the history was created.
+      console.log(`TIMELINE EVENT CREATED: Candidate ${timelineEntry.candidateId} moved from ${previousStage} to ${updates.stage}`);
 
       return HttpResponse.json(updatedApplication);
     } catch (error) {
+      console.error("MSW Error (PATCH /api/applications/:id):", error);
       return HttpResponse.json({ message: 'Failed to update application' }, { status: 500 });
     }
   }),
+
+
+  http.get('/api/candidates/:candidateId/timeline', async ({ params }) => {
+    await simulateNetwork();
+    try {
+        const { candidateId } = params;
+        const timelineEvents = await db.candidateTimeline
+            .where('candidateId').equals(candidateId)
+            .sortBy('timestamp');
+
+        return HttpResponse.json(timelineEvents);
+    } catch (error) {
+        console.error("MSW Error (GET /api/candidates/:candidateId/timeline):", error);
+        return HttpResponse.json({ message: 'Failed to fetch timeline' }, { status: 500 });
+    }
+  }),
+
 
 ];

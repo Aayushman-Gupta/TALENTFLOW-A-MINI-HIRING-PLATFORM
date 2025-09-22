@@ -7,28 +7,30 @@ import {
 import { CandidateCard } from "./CandidateCard";
 
 export function KanbanColumn({ id, title, applications }) {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id,
-    // **ADDED**: This data tells dnd-kit what stage this column represents.
-    data: {
-      type: "Column",
-      stageId: id,
-    },
+    data: { type: "Column", stageId: id },
   });
 
+  // Styles for the body of the column
+  const columnBodyStyles = `
+    flex-grow p-1 space-y-2 bg-slate-800/50 rounded-b-lg border-x border-b border-slate-700/80
+    transition-colors duration-300 ease-in-out
+    ${isOver ? "bg-slate-800/80" : ""}
+  `;
+
   return (
-    <div className="flex flex-col rounded-lg bg-gray-800/50">
-      <h3 className="flex items-center justify-between rounded-t-lg bg-gray-800 p-3 text-sm font-semibold text-gray-200">
-        {title}
-        <span className="rounded-full bg-gray-700 px-2 py-1 text-xs font-bold text-gray-300">
+    // UPDATED: Added 'self-start' to prevent the column from stretching vertically
+    <div className="flex flex-col w-full self-start">
+      {/* Reverted to a neutral, default header style */}
+      <div className="flex items-center justify-between p-2 flex-shrink-0 rounded-t-lg bg-slate-700 text-slate-200">
+        <h3 className="text-sm font-medium uppercase tracking-wider">{title}</h3>
+        <span className="flex items-center justify-center text-xs font-semibold bg-black/25 rounded-full h-5 w-5">
           {applications.length}
         </span>
-      </h3>
-      <div
-        ref={setNodeRef}
-        className="flex flex-grow flex-col gap-3 overflow-y-auto p-3"
-        style={{ minHeight: "100px" }}
-      >
+      </div>
+
+      <div ref={setNodeRef} className={columnBodyStyles}>
         <SortableContext
           items={applications.map((app) => app.id)}
           strategy={verticalListSortingStrategy}
@@ -37,7 +39,14 @@ export function KanbanColumn({ id, title, applications }) {
             <CandidateCard key={app.id} application={app} />
           ))}
         </SortableContext>
+
+        {applications.length === 0 && (
+          <div className="flex items-center justify-center h-16 m-1 text-xs text-slate-500 border-2 border-dashed border-slate-700 rounded-lg">
+            Drop candidates here
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

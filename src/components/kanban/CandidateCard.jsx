@@ -1,6 +1,7 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Mail } from "lucide-react";
 
 export function CandidateCard({ application, isOverlay }) {
   const {
@@ -12,7 +13,6 @@ export function CandidateCard({ application, isOverlay }) {
     isDragging,
   } = useSortable({
     id: application.id,
-    // **UPDATED**: Adding the stageId here is key.
     data: {
       type: "Application",
       application,
@@ -22,12 +22,11 @@ export function CandidateCard({ application, isOverlay }) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    transition: transition || "transform 250ms ease, box-shadow 250ms ease",
+    opacity: isDragging ? 0.4 : 1,
     boxShadow: isOverlay
-      ? "0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1)"
-      : "none",
-    cursor: "grab",
+      ? "0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3)"
+      : "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
   };
 
   const candidate = application.candidate || {
@@ -35,16 +34,43 @@ export function CandidateCard({ application, isOverlay }) {
     email: "no-email@provided.com",
   };
 
+  if (isOverlay) {
+    style.transform = `${style.transform} rotate(5deg)`; // Tilt effect when dragging
+  }
+
+  // UPDATED:
+  // - The {...listeners} and {...attributes} are now on the main div, making the whole card draggable.
+  // - The layout is now vertical (flex-col) to make the card taller.
+  // - The drag handle icon has been removed.
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="rounded-lg border border-gray-700 bg-gray-800 p-3 text-sm shadow-sm transition-shadow duration-200 hover:border-gray-600"
+      className="bg-slate-800 rounded-md border border-slate-700 p-3 text-sm shadow-sm touch-none cursor-grab active:cursor-grabbing hover:border-blue-500 transition-colors"
     >
-      <p className="font-bold text-gray-100">{candidate.name}</p>
-      <p className="truncate text-xs text-gray-400">{candidate.email}</p>
+      <div className="flex items-center space-x-3">
+        {/* Avatar */}
+        <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+          <span className="text-white font-bold text-xs">
+            {candidate.name.charAt(0).toUpperCase()}
+          </span>
+        </div>
+
+        {/* Content - STACKED VERTICALLY */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <p className="font-bold text-slate-100 text-sm whitespace-nowrap overflow-hidden text-ellipsis">
+            {candidate.name}
+          </p>
+          <div className="flex items-center mt-1 text-slate-400">
+            <Mail size={12} className="mr-1.5 flex-shrink-0" />
+            {/* The email will now wrap if too long, making the card taller */}
+            <p className="text-xs break-all">{candidate.email}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
