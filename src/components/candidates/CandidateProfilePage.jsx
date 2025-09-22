@@ -6,7 +6,6 @@ import {
   Phone,
   User,
   Clock,
-  ArrowRight,
   Briefcase,
   LoaderCircle,
   MapPin,
@@ -22,6 +21,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import './CandidateProfilePage.css'; // Import the CSS animations
+import NotesSection from '../notes/NotesSection';
 
 // --- API Service for this page ---
 const api = {
@@ -251,14 +251,16 @@ export default function CandidateProfilePage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg animate-slide-in-left delay-200">
+            {/* <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg animate-slide-in-left delay-200">
               <h3 className="text-lg font-semibold mb-4 text-gray-200">Quick Actions</h3>
               <div className="space-y-3">
                 <ActionButton icon={Download} label="Download Resume" delay="delay-100" />
                 <ActionButton icon={ExternalLink} label="View Portfolio" delay="delay-200" />
                 <ActionButton icon={Mail} label="Send Email" delay="delay-300" />
               </div>
-            </div>
+            </div> */}
+
+            {candidate && <NotesSection candidateId={candidate.id} />}
           </div>
 
           {/* Right Column: Timeline */}
@@ -380,7 +382,8 @@ const ComprehensiveTimeline = ({ timeline, currentStage, isLoaded }) => {
                   {stageData && (
                     <div className="flex items-center space-x-2 text-sm text-gray-300 animate-slide-in-up">
                       <Calendar size={14} />
-                      <span>{new Date(stageData.timestamp).toLocaleDateString()}</span>
+                      {/* THIS IS THE ONLY CHANGE: Displaying date and time */}
+                      <span>{new Date(stageData.timestamp).toLocaleString()}</span>
                     </div>
                   )}
 
@@ -418,3 +421,4 @@ const ActionButton = ({ icon: Icon, label, delay = "" }) => (
     <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{label}</span>
   </button>
 );
+

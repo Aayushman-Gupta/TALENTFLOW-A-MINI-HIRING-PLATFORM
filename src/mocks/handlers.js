@@ -7,6 +7,8 @@ const simulateNetwork = async () => {
   await new Promise(res => setTimeout(res, delay));
 };
 
+ let notesByCandidate = {};
+
 export const handlers = [
   http.get('/api/jobs', async ({ request }) => {
     await simulateNetwork();
@@ -285,4 +287,26 @@ export const handlers = [
   }),
 
 
+  http.get('/api/candidates/:candidateId/notes', ({ params }) => {
+        const { candidateId } = params;
+        const notes = notesByCandidate[candidateId] || [];
+        return HttpResponse.json(notes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    }),
+
+  http.post('/api/candidates/:candidateId/notes', async ({ request, params }) => {
+      const { candidateId } = params;
+      const { content } = await request.json();
+      const newNote = {
+          id: `note-${Date.now()}`,
+          candidateId,
+          content,
+          authorId: 'user-1', // Hardcoded author for this demo
+          createdAt: new Date().toISOString(),
+      };
+      if (!notesByCandidate[candidateId]) {
+          notesByCandidate[candidateId] = [];
+      }
+      notesByCandidate[candidateId].push(newNote);
+      return HttpResponse.json(newNote, { status: 201 });
+  }),
 ];
