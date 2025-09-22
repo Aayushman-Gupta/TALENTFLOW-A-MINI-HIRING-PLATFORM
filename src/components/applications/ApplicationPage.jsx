@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { paginate } from "../../utils/pagination";
 import PaginationControls from "../../utils/PaginationControls";
+import CandidateProfilePage from "../candidates/CandidateProfilePage";
 
 // --- API Service (no changes) ---
 const api = {
@@ -273,25 +274,22 @@ const ApplicationCard = ({ application }) => {
           </span>
         </div>
         <div className="space-y-2 text-sm text-gray-300">
-          <p className="flex items-center">
-            <Mail size={14} className="mr-2 text-gray-400" />{" "}
-            {candidate?.email || "No email"}
-          </p>
-          <p className="flex items-center">
-            <Calendar size={14} className="mr-2 text-gray-400" /> Applied:{" "}
-            {new Date(appliedAt).toLocaleDateString()}
-          </p>
-          <p className="flex items-center">
-            <Hash size={14} className="mr-2 text-gray-400" /> App. ID:{" "}
-            {application.id.slice(0, 8)}
-          </p>
+          <p className="flex items-center"><Mail size={14} className="mr-2 text-gray-400" /> {candidate?.email || "No email"}</p>
+          <p className="flex items-center"><Calendar size={14} className="mr-2 text-gray-400" /> Applied: {new Date(appliedAt).toLocaleDateString()}</p>
+          <p className="flex items-center"><Hash size={14} className="mr-2 text-gray-400" /> App. ID: {application.id.slice(0, 8)}</p>
         </div>
       </div>
       <div className="mt-5 border-t border-gray-700 pt-4 flex justify-end">
-        <button className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors">
+        {/* UPDATED: The button is now a Link component */}
+        <Link
+          to={`/candidate/${candidate.id}`}
+          className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors"
+        >
           View Profile &rarr;
-        </button>
+        </Link>
       </div>
     </div>
   );
 };
+
+

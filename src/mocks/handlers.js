@@ -252,4 +252,37 @@ export const handlers = [
   }),
 
 
+  http.get('/api/candidates/:candidateId', async ({ params }) => {
+    try {
+      const { candidateId } = params;
+      const candidate = await db.candidates.get(candidateId);
+      if (candidate) {
+        return HttpResponse.json(candidate);
+      }
+      return HttpResponse.json({ message: 'Candidate not found' }, { status: 404 });
+    } catch (error) {
+      return HttpResponse.json({ message: 'Failed to fetch candidate' }, { status: 500 });
+    }
+  }),
+
+  /**
+   * NEW: GET /api/candidates/:candidateId/timeline
+   * Fetches all historical timeline events for a specific candidate, sorted by date.
+   */
+  http.get('/api/candidates/:candidateId/timeline', async ({ params }) => {
+    try {
+      const { candidateId } = params;
+      // Dexie's sortBy method is perfect for sorting the timeline chronologically.
+      const timelineEvents = await db.candidateTimeline
+        .where('candidateId').equals(candidateId)
+        .sortBy('timestamp');
+
+      // We reverse the array to show the most recent events first.
+      return HttpResponse.json(timelineEvents.reverse());
+    } catch (error) {
+      return HttpResponse.json({ message: 'Failed to fetch timeline' }, { status: 500 });
+    }
+  }),
+
+
 ];

@@ -6,6 +6,7 @@ import { DashBoardPage } from './components/DashBoard';
 import JobDetailPage from './components/jobs/JobDetailPage';
 import ApplicationsPage from './components/applications/ApplicationPage';
 import KanbanPage from './components/kanban/KanbanPage';
+import CandidateProfilePage from './components/candidates/CandidateProfilePage';
 
 function App() {
   return (
@@ -16,6 +17,9 @@ function App() {
         <Route path="/jobs/:jobId" element={<JobDetailPage />} />
         <Route path="/jobs/:jobId/applications" element={<ApplicationsPage />} />
         <Route path="/jobs/:jobId/kanban" element={<KanbanPage />} />
+        <Route path="/jobs/:jobId/kanban" element={<KanbanPage />} />
+        <Route path="/candidate/:candidateId" element={<CandidateProfilePage />} />
+
       </Routes>
     </BrowserRouter>
   )
