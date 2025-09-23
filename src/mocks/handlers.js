@@ -1,13 +1,23 @@
 import { http, HttpResponse } from 'msw';
 import { db } from '../services/database'; // Import your Dexie database instance
 
+// Define teamMembers directly in this file to avoid import issues
+const teamMembers = [
+  { id: 'user-1', name: 'Sarah Johnson', role: 'HR Manager', email: 'sarah@company.com' },
+  { id: 'user-2', name: 'Mike Chen', role: 'Technical Lead', email: 'mike@company.com' },
+  { id: 'user-3', name: 'Lisa Rodriguez', role: 'Recruiter', email: 'lisa@company.com' },
+  { id: 'user-4', name: 'David Kim', role: 'Engineering Manager', email: 'david@company.com' },
+  { id: 'user-5', name: 'Emily Davis', role: 'Senior Developer', email: 'emily@company.com' },
+  { id: 'user-6', name: 'Alex Thompson', role: 'Product Manager', email: 'alex@company.com' },
+  { id: 'user-7', name: 'Jennifer Lee', role: 'UX Designer', email: 'jennifer@company.com' },
+  { id: 'user-8', name: 'Robert Wilson', role: 'DevOps Engineer', email: 'robert@company.com' }
+];
+
 // Helper to simulate realistic network latency
 const simulateNetwork = async () => {
   const delay = Math.random() * 800 + 200; // 200ms - 1000ms delay
   await new Promise(res => setTimeout(res, delay));
 };
-
- let notesByCandidate = {};
 
 export const handlers = [
   http.get('/api/jobs', async ({ request }) => {
@@ -238,20 +248,46 @@ export const handlers = [
   }),
 
 
-  http.get('/api/candidates/:candidateId/timeline', async ({ params }) => {
-    await simulateNetwork();
-    try {
-        const { candidateId } = params;
-        const timelineEvents = await db.candidateTimeline
-            .where('candidateId').equals(candidateId)
-            .sortBy('timestamp');
+    http.get('/api/candidates/:candidateId/jobs', async ({ params }) => {
+        try {
+            const { candidateId } = params;
+            // 1. Find all applications for this candidate
+            const applications = await db.applications.where({ candidateId }).toArray();
+            const jobIds = [...new Set(applications.map(app => app.jobId))]; // Get unique job IDs
 
-        return HttpResponse.json(timelineEvents);
-    } catch (error) {
-        console.error("MSW Error (GET /api/candidates/:candidateId/timeline):", error);
-        return HttpResponse.json({ message: 'Failed to fetch timeline' }, { status: 500 });
-    }
-  }),
+            // 2. Fetch the details for those jobs
+            if (jobIds.length === 0) {
+                return HttpResponse.json([]);
+            }
+            const jobs = await db.jobs.where('id').anyOf(jobIds).toArray();
+
+            return HttpResponse.json(jobs);
+        } catch (error) {
+            console.error("MSW Error (GET candidate jobs):", error);
+            return HttpResponse.json({ message: 'Failed to fetch jobs for candidate' }, { status: 500 });
+        }
+    }),
+
+    /**
+     * UPDATED: GET /api/candidates/:candidateId/timeline
+     * Now filters by jobId passed as a query parameter.
+     */
+    http.get('/api/candidates/:candidateId/timeline', async ({ request, params }) => {
+        const { candidateId } = params;
+        const url = new URL(request.url);
+        const jobId = url.searchParams.get('jobId');
+
+        if (!jobId) return HttpResponse.json([]); // Return empty if no job is selected
+
+        try {
+            const timelineEvents = await db.candidateTimeline
+                .where({ candidateId, jobId })
+                .sortBy('timestamp');
+            return HttpResponse.json(timelineEvents.reverse()); // Newest first
+        } catch (error) {
+            return HttpResponse.json({ message: 'Failed to fetch timeline' }, { status: 500 });
+        }
+    }),
 
 
   http.get('/api/candidates/:candidateId', async ({ params }) => {
@@ -267,46 +303,63 @@ export const handlers = [
     }
   }),
 
-  /**
-   * NEW: GET /api/candidates/:candidateId/timeline
-   * Fetches all historical timeline events for a specific candidate, sorted by date.
-   */
-  http.get('/api/candidates/:candidateId/timeline', async ({ params }) => {
-    try {
-      const { candidateId } = params;
-      // Dexie's sortBy method is perfect for sorting the timeline chronologically.
-      const timelineEvents = await db.candidateTimeline
-        .where('candidateId').equals(candidateId)
-        .sortBy('timestamp');
+  http.get('/api/candidates/:candidateId/notes', async ({ request, params }) => {
+    await simulateNetwork();
+    const { candidateId } = params;
+    const url = new URL(request.url);
+    const jobId = url.searchParams.get('jobId');
 
-      // We reverse the array to show the most recent events first.
-      return HttpResponse.json(timelineEvents.reverse());
+    if (!jobId) return HttpResponse.json([]); // Return empty if no job is selected
+
+    try {
+      const notes = await db.notes.where({ candidateId, jobId }).sortBy('createdAt');
+      return HttpResponse.json(notes.reverse());
     } catch (error) {
-      return HttpResponse.json({ message: 'Failed to fetch timeline' }, { status: 500 });
+      console.error('Error fetching notes:', error);
+      return HttpResponse.json({ message: 'Failed to fetch notes' }, { status: 500 });
     }
   }),
 
-
-  http.get('/api/candidates/:candidateId/notes', ({ params }) => {
-        const { candidateId } = params;
-        const notes = notesByCandidate[candidateId] || [];
-        return HttpResponse.json(notes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-    }),
-
+  /**
+   * UPDATED: POST /api/candidates/:candidateId/notes
+   * Now requires a jobId in the payload and saves to Dexie.
+   */
   http.post('/api/candidates/:candidateId/notes', async ({ request, params }) => {
+    await simulateNetwork();
+    try {
       const { candidateId } = params;
-      const { content } = await request.json();
-      const newNote = {
-          id: `note-${Date.now()}`,
-          candidateId,
-          content,
-          authorId: 'user-1', // Hardcoded author for this demo
-          createdAt: new Date().toISOString(),
-      };
-      if (!notesByCandidate[candidateId]) {
-          notesByCandidate[candidateId] = [];
+      const { content, jobId } = await request.json();
+
+      if (!jobId) {
+        return HttpResponse.json({ message: 'jobId is required' }, { status: 400 });
       }
-      notesByCandidate[candidateId].push(newNote);
-      return HttpResponse.json(newNote, { status: 201 });
+
+      if (!content || content.trim() === '') {
+        return HttpResponse.json({ message: 'content is required' }, { status: 400 });
+      }
+
+      // Extract mentioned names from the content
+      const mentionedNames = (content.match(/@([a-zA-Z\s]+)/g) || []).map(m => m.substring(1).trim());
+      const mentionedUserIds = teamMembers.filter(m => mentionedNames.includes(m.name)).map(m => m.id);
+
+      const newNote = {
+        candidateId,
+        jobId, // Save the jobId
+        content: content.trim(),
+        authorId: 'user-1', // Default author - you can make this dynamic
+        createdAt: new Date().toISOString(),
+        mentionedUserIds,
+      };
+
+      // Add to Dexie database
+      const savedNoteId = await db.notes.add(newNote);
+      const savedNote = { ...newNote, id: savedNoteId };
+
+      console.log('Note saved successfully:', savedNote);
+      return HttpResponse.json(savedNote, { status: 201 });
+    } catch (error) {
+      console.error("MSW Error (POST note):", error);
+      return HttpResponse.json({ message: 'Failed to save note' }, { status: 500 });
+    }
   }),
 ];

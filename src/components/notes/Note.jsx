@@ -17,7 +17,7 @@ const renderNoteContent = (content) => {
   });
 };
 
-export function Note({ note }) {
+export default function Note({ note }) {
   const author = teamMembers.find(m => m.id === note.authorId) || { name: 'System' };
   return (
     <div className="bg-slate-700/40 p-4 rounded-lg border border-slate-600/50">

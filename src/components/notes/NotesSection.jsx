@@ -1,21 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { teamMembers } from '../../utils/teamMembers';
-import { Note } from './Note';
-import { Send, MessageSquare } from 'lucide-react';
+import React, { useState } from "react";
+import { teamMembers } from "../../utils/teamMembers";
+import { Send, MessageSquare } from "lucide-react";
 
-export default function NotesSection({ candidateId }) {
-  const [notes, setNotes] = useState([]);
-  const [newNote, setNewNote] = useState('');
+// UPDATED: Component now takes both candidateId and jobId
+export default function NotesSection({ candidateId, jobId, onNoteAdded }) {
+  const [newNote, setNewNote] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    const fetchNotes = async () => {
-      const response = await fetch(`/api/candidates/${candidateId}/notes`);
-      if (response.ok) setNotes(await response.json());
-    };
-    fetchNotes();
-  }, [candidateId]);
 
   const handleInputChange = (e) => {
     const text = e.target.value;
@@ -25,7 +16,9 @@ export default function NotesSection({ candidateId }) {
     if (mentionMatch) {
       const query = mentionMatch[1].toLowerCase();
       setSuggestions(
-        teamMembers.filter(member => member.name.toLowerCase().includes(query))
+        teamMembers.filter((member) =>
+          member.name.toLowerCase().includes(query)
+        )
       );
     } else {
       setSuggestions([]);
@@ -33,69 +26,95 @@ export default function NotesSection({ candidateId }) {
   };
 
   const handleSuggestionClick = (member) => {
-    const textBefore = newNote.substring(0, newNote.lastIndexOf('@'));
+    const textBefore = newNote.substring(0, newNote.lastIndexOf("@"));
     setNewNote(`${textBefore}@${member.name} `);
     setSuggestions([]);
-    document.getElementById('note-input').focus();
+    document.getElementById("note-input").focus();
   };
 
   const handleSubmitNote = async (e) => {
     e.preventDefault();
-    if (newNote.trim() === '') return;
+    if (newNote.trim() === "" || !jobId) return;
+
     setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/candidates/${candidateId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: newNote,
+          jobId: jobId // Include jobId in the payload
+        }),
+      });
 
-    const response = await fetch(`/api/candidates/${candidateId}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newNote }),
-    });
-
-    if (response.ok) {
+      if (response.ok) {
         const savedNote = await response.json();
-        setNotes([savedNote, ...notes]);
-        setNewNote('');
+        onNoteAdded(savedNote); // Notify parent component of the new note
+        setNewNote("");
+        setSuggestions([]);
+      } else {
+        console.error('Failed to save note:', await response.text());
+        alert('Failed to save note. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving note:', error);
+      alert('Failed to save note. Please check your connection.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
-    <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg animate-slide-in-right delay-200">
-      <h2 className="text-2xl font-semibold mb-6 flex items-center">
-        <MessageSquare size={24} className="mr-3 text-purple-400" />
-        Notes & Mentions
+    <div className="bg-gradient-to-br from-gray-800/70 to-gray-900/60 backdrop-blur-lg rounded-2xl border border-gray-700/30 p-6 shadow-2xl animate-slide-in-left delay-200 hover:shadow-purple-500/10 transition-all duration-300">
+      <h2 className="text-2xl font-bold mb-6 flex items-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
+        <MessageSquare
+          size={24}
+          className="mr-3 text-purple-400 animate-pulse"
+        />
+        Add a Note
       </h2>
-      <form onSubmit={handleSubmitNote} className="relative">
+      <form onSubmit={handleSubmitNote} className="relative group">
         <textarea
           id="note-input"
           value={newNote}
           onChange={handleInputChange}
-          placeholder="Add a note... type @ to mention a colleague"
-          className="w-full bg-slate-700/50 border border-slate-600 rounded-lg p-3 pr-12 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+          placeholder="Type @ to mention a colleague..."
+          className="w-full bg-slate-800/50 border border-slate-600/50 rounded-xl p-4 pr-14 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 focus:outline-none transition-all duration-300 resize-none hover:bg-slate-800/70 placeholder:text-slate-400"
           rows="3"
         />
         <button
-            type="submit"
-            className="absolute right-3 bottom-3 p-2 bg-blue-600 hover:bg-blue-700 rounded-full text-white disabled:bg-slate-600 transition-colors"
-            disabled={!newNote.trim() || isSubmitting}
+          type="submit"
+          className={`absolute right-3 bottom-3 p-2.5 rounded-xl text-white transition-all duration-300 transform ${
+            !newNote.trim() || isSubmitting || !jobId
+              ? "bg-slate-600 scale-95 opacity-60 cursor-not-allowed"
+              : "bg-gradient-to-r from-purple-500 to-blue-500 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25 active:scale-95"
+          } ${isSubmitting ? "animate-spin" : ""}`}
+          disabled={!newNote.trim() || isSubmitting || !jobId}
         >
-            <Send size={16} />
+          <Send size={16} />
         </button>
-
         {suggestions.length > 0 && (
-          <div className="absolute z-10 w-full sm:w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-xl mt-1 overflow-hidden">
-            <ul>
-              {suggestions.map(member => (
-                <li key={member.id} onClick={() => handleSuggestionClick(member)} className="px-4 py-2 hover:bg-slate-700 cursor-pointer">
-                  <p className="font-semibold text-white">{member.name}</p>
+          <div className="absolute z-10 w-full sm:w-64 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-xl shadow-2xl mt-2 overflow-hidden animate-fadeIn">
+            <ul className="max-h-48 overflow-y-auto">
+              {suggestions.map((member) => (
+                <li
+                  key={member.id}
+                  onClick={() => handleSuggestionClick(member)}
+                  className="px-4 py-3 hover:bg-gradient-to-r hover:from-purple-500/20 hover:to-blue-500/20 cursor-pointer transition-all duration-200 border-b border-slate-700/30 last:border-0"
+                >
+                  <p className="font-medium text-white flex items-center">
+                    <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                    {member.name}
+                  </p>
                 </li>
               ))}
             </ul>
           </div>
         )}
       </form>
-      <div className="mt-6 space-y-4 max-h-96 overflow-y-auto">
-        {notes.map(note => <Note key={note.id} note={note} />)}
-      </div>
+      {!jobId && (
+        <p className="text-red-400 text-xs mt-2">Please select a job to add notes</p>
+      )}
     </div>
   );
 }
