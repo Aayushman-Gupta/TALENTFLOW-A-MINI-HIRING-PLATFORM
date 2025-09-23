@@ -642,7 +642,7 @@ const DetailItem = ({ label, value, icon: Icon }) => (
   </div>
 );
 
-const ActionButton = ({ icon: Icon, label, delay = "" }) => (
+const ActionButton = ({ icon: Icon, label, delay = "" }) => {
   <button
     className={`w-full flex items-center space-x-3 px-4 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-all duration-200 group border border-gray-600/30 hover:border-blue-500/30 animate-slide-in-up ${delay}`}
   >
@@ -654,4 +654,4 @@ const ActionButton = ({ icon: Icon, label, delay = "" }) => (
       {label}
     </span>
   </button>
-);
+} ;

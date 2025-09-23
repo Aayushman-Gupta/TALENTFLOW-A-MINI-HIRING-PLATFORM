@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { MapPin, Briefcase, Clock } from 'lucide-react';
+import { MapPin, Briefcase, Clock } from "lucide-react";
 import {
   Edit3,
   Archive,
@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   LoaderCircle,
   ArchiveRestore,
+  ClipboardPlus, // Import the new icon
 } from "lucide-react";
 import JobModal from "./JobModal";
 import Toast from "./Toast";
@@ -137,29 +138,29 @@ export default function JobDetailPage() {
 
         <div className="flex flex-col md:flex-row items-start justify-between mb-8">
           <div>
-  <h1 className="text-4xl font-bold text-white">{job.title}</h1>
+            <h1 className="text-4xl font-bold text-white">{job.title}</h1>
 
-  {/* IMPROVED: Replaced the simple text line with styled tags */}
-  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-gray-300">
-    {/* Location Tag */}
-    <div className="flex items-center bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-sm">
-      <MapPin size={14} className="mr-2 text-blue-400" />
-      <span>{job.location}</span>
-    </div>
+            {/* IMPROVED: Replaced the simple text line with styled tags */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-gray-300">
+              {/* Location Tag */}
+              <div className="flex items-center bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-sm">
+                <MapPin size={14} className="mr-2 text-blue-400" />
+                <span>{job.location}</span>
+              </div>
 
-    {/* Department Tag */}
-    <div className="flex items-center bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-sm">
-      <Briefcase size={14} className="mr-2 text-purple-400" />
-      <span>{job.department}</span>
-    </div>
+              {/* Department Tag */}
+              <div className="flex items-center bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-sm">
+                <Briefcase size={14} className="mr-2 text-purple-400" />
+                <span>{job.department}</span>
+              </div>
 
-    {/* Job Type Tag */}
-    <div className="flex items-center bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-sm">
-      <Clock size={14} className="mr-2 text-green-400" />
-      <span>{job.type}</span>
-    </div>
-  </div>
-</div>
+              {/* Job Type Tag */}
+              <div className="flex items-center bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-sm">
+                <Clock size={14} className="mr-2 text-green-400" />
+                <span>{job.type}</span>
+              </div>
+            </div>
+          </div>
           <span
             className={`mt-4 md:mt-0 px-3 py-1 rounded-full text-sm font-medium ${
               job.status === "active"
@@ -173,17 +174,16 @@ export default function JobDetailPage() {
 
         <div className="flex items-center space-x-4 border-y border-gray-700 py-4 mb-8">
           <Link
-        to={`/jobs/${job.id}/applications`}
-        className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            to={`/jobs/${job.id}/applications`}
+            className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
-              <Eye size={18} className="mr-2" />
-              View Applications
+            <Eye size={18} className="mr-2" />
+            View Applications
           </Link>
           <button
             onClick={() => setIsEditModalOpen(true)}
             className="flex items-center bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
-
             <Edit3 size={18} className="mr-2" /> Edit Job
           </button>
 
@@ -192,13 +192,13 @@ export default function JobDetailPage() {
           <Link
             to={`/jobs/${job.id}/kanban`}
             className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-              >
-                  <Eye size={18}  className="mr-2"/>
-                  View Kanban Board
+          >
+            <Eye size={18} className="mr-2" />
+            View Kanban Board
           </Link>
 
           {/* kanban button ends */}
-          
+
           <button
             onClick={handleToggleStatus}
             className="flex items-center bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
@@ -210,6 +210,16 @@ export default function JobDetailPage() {
             )}
             {job.status === "active" ? "Archive" : "Restore"} Job
           </button>
+
+          {/* --- NEW ASSESSMENT BUILDER BUTTON --- */}
+          {/* This button links to the new page where you'll build the assessment creator */}
+          <Link
+            to={`/jobs/${job.id}/assessment-builder`}
+            className="flex items-center bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+          >
+            <ClipboardPlus size={18} className="mr-2" />
+            Build Assessment
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
