@@ -224,43 +224,60 @@ export const handlers = [
     }
   }),
 
-  http.get("/api/applications", async ({ request }) => {
+
+http.get("/api/applications", async ({ request }) => {
     await simulateNetwork();
     const url = new URL(request.url);
     const jobId = url.searchParams.get("jobId");
-
-    if (!jobId) {
-      return HttpResponse.json(
-        { message: "jobId is required" },
-        { status: 400 }
-      );
-    }
+    const candidateId = url.searchParams.get("candidateId");
 
     try {
-      const applications = await db.applications
-        .where("jobId")
-        .equals(jobId)
-        .toArray();
-      const candidateIds = applications.map((app) => app.candidateId);
-      const candidates = await db.candidates
-        .where("id")
-        .anyOf(candidateIds)
-        .toArray();
-      const candidateMap = new Map(candidates.map((c) => [c.id, c]));
+        let applications;
+        // This logic allows the same endpoint to be used for different queries
+        if (candidateId) {
+            // Find all applications for a specific candidate
+            applications = await db.applications.where("candidateId").equals(candidateId).toArray();
+        } else if (jobId) {
+            // Find all applications for a specific job
+            applications = await db.applications.where("jobId").equals(jobId).toArray();
+        } else {
+            // Or get all applications if no filter is specified
+            applications = await db.applications.toArray();
+        }
 
-      const enrichedApplications = applications.map((app) => ({
-        ...app,
-        candidate: candidateMap.get(app.candidateId) || null,
-      }));
+        // --- Enrich applications with candidate/job details if needed ---
+        // This part is more robust and useful for other parts of the app too
+        if (applications.length > 0) {
+            const candidateIds = [...new Set(applications.map(app => app.candidateId))];
+            const jobIds = [...new Set(applications.map(app => app.jobId))];
 
-      return HttpResponse.json(enrichedApplications);
+            const candidates = await db.candidates.where("id").anyOf(candidateIds).toArray();
+            const jobs = await db.jobs.where("id").anyOf(jobIds).toArray();
+
+            const candidateMap = new Map(candidates.map(c => [c.id, c]));
+            const jobMap = new Map(jobs.map(j => [j.id, j]));
+
+            const enrichedApplications = applications.map(app => ({
+                ...app,
+                candidate: candidateMap.get(app.candidateId) || null,
+                job: jobMap.get(app.jobId) || null,
+            }));
+
+            return HttpResponse.json(enrichedApplications);
+        }
+
+        return HttpResponse.json([]);
+
     } catch (error) {
-      return HttpResponse.json(
-        { message: "Failed to fetch applications" },
-        { status: 500 }
-      );
+        console.error("MSW Error (GET /api/applications):", error);
+        return HttpResponse.json(
+            { message: "Failed to fetch applications" },
+            { status: 500 }
+        );
     }
-  }),
+}),
+
+
 
   http.patch("/api/applications/:id", async ({ request, params }) => {
     await simulateNetwork();
@@ -490,4 +507,49 @@ export const handlers = [
       return HttpResponse.json({ message: "Failed to save assessment" }, { status: 500 });
     }
   }),
+
+    http.post('/api/assessments/:jobId/submit', async ({ request }) => {
+    await simulateNetwork();
+    try {
+      const { applicationId, responses } = await request.json();
+
+      if (!applicationId || !responses) {
+        return HttpResponse.json({ message: 'Missing applicationId or responses' }, { status: 400 });
+      }
+
+      const responseToSave = {
+        applicationId: applicationId,
+        responses: responses,
+        submittedAt: new Date().toISOString(),
+      };
+
+      // Use .put() to either create a new response or overwrite an existing one for the same application
+      await db.assessmentResponses.put(responseToSave);
+      console.log('Assessment Response Saved:', responseToSave);
+
+      return HttpResponse.json(responseToSave, { status: 201 });
+    } catch (error) {
+      console.error("MSW Error (POST /api/assessments/:jobId/submit):", error);
+      return HttpResponse.json({ message: 'Failed to submit assessment' }, { status: 500 });
+    }
+  }),
+
+// GET to check for an existing assessment response for an application
+http.get("/api/assessment-responses/:applicationId", async ({ params }) => {
+    await simulateNetwork();
+    try {
+        const { applicationId } = params;
+        const response = await db.assessmentResponses.get(applicationId);
+
+        if (response) {
+            return HttpResponse.json(response);
+        } else {
+            return HttpResponse.json({ message: "Response not found" }, { status: 404 });
+        }
+    } catch (error) {
+        console.error("MSW Error (GET /api/assessment-responses/:applicationId):", error);
+        return HttpResponse.json({ message: "Failed to fetch response" }, { status: 500 });
+    }
+}),
+
 ];

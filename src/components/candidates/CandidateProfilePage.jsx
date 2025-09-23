@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -17,14 +17,14 @@ import {
   AlertCircle,
   PlayCircle,
   FileText,
-  Download,
-  ExternalLink,
   MessageSquare,
   ChevronDown,
 } from "lucide-react";
 import "./CandidateProfilePage.css";
 import NotesSection from "../notes/NotesSection";
 import Note from "../notes/Note";
+import CandidateAssessments from "../Assessments/CandidateAssessments";
+
 
 // --- API Service for this page ---
 const api = {
@@ -332,6 +332,18 @@ export default function CandidateProfilePage() {
               </div>
             </div>
 
+            {/* --- MODIFIED START: Add Assessment Component --- */}
+            {candidate && (
+              <div className="animate-slide-in-left delay-200">
+                <CandidateAssessments
+                  candidateId={candidate.id}
+                  candidateName={candidate.name}
+                />
+              </div>
+            )}
+            {/* --- MODIFIED END --- */}
+
+
             {candidate && selectedJobId && (
               <NotesSection
                 candidateId={candidate.id}
@@ -381,16 +393,13 @@ export default function CandidateProfilePage() {
 const ComprehensiveTimeline = ({ events, isLoaded }) => {
   const STAGE_ORDER = ["applied", "screen", "tech", "offer", "hired", "rejected"];
 
-  // Separate stage events and note events
   const stageEvents = events.filter(e => e.type === 'stage');
   const noteEvents = events.filter(e => e.type === 'note');
 
-  // Find current stage from the latest stage event
   const currentStageEvent = stageEvents.length > 0 ? stageEvents[0] : null;
   const currentStage = currentStageEvent ? currentStageEvent.newStage : 'applied';
   const currentStageIndex = STAGE_ORDER.indexOf(currentStage);
 
-  // Create map of completed stages with their timestamps
   const completedStagesMap = new Map();
   stageEvents.forEach(event => {
     if (!completedStagesMap.has(event.newStage)) {
@@ -415,7 +424,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
       )}
 
       <div className="space-y-6">
-        {/* Render all stages in order */}
         {STAGE_ORDER.map((stage, stageIndex) => {
           const stageConfig = STAGE_CONFIG[stage];
           const stageEvent = completedStagesMap.get(stage);
@@ -423,7 +431,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
           const isCompleted = stageEvent && !isCurrent;
           const isUpcoming = stageIndex > currentStageIndex && stage !== 'rejected';
 
-          // Skip rejected if not the current stage and not completed
           if (stage === 'rejected' && !isCurrent && !isCompleted) {
             return null;
           }
@@ -437,7 +444,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                 isLoaded ? "animate-station-arrive" : "opacity-0"
               } ${animationDelay}`}
             >
-              {/* Stage Timeline Dot */}
               <div
                 className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm transition-all duration-500 ${
                   isCurrent
@@ -459,21 +465,15 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                       : `bg-gradient-to-r ${stageConfig.color} bg-clip-text text-transparent`
                   }
                 />
-
-                {/* Current stage indicator */}
                 {isCurrent && (
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-bounce"></div>
                 )}
-
-                {/* Completed stage indicator */}
                 {isCompleted && (
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-gray-800 timeline-completion-indicator">
                     <CheckCircle size={12} className="text-white absolute top-0 left-0" />
                   </div>
                 )}
               </div>
-
-              {/* Stage Content */}
               <div className="ml-6 flex-1">
                 <div
                   className={`bg-gradient-to-r backdrop-blur-sm rounded-xl p-4 shadow-lg transition-all duration-500 transform ${
@@ -496,7 +496,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                     {stageConfig.label}
                   </h3>
 
-                  {/* Show date for completed/current stages */}
                   {stageEvent && (
                     <div className={`flex items-center space-x-2 text-sm animate-slide-in-up ${
                       isUpcoming ? "text-gray-600" : "text-gray-300"
@@ -506,7 +505,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                     </div>
                   )}
 
-                  {/* Show status for upcoming stages */}
                   {isUpcoming && (
                     <div className="text-sm text-gray-500">
                       Upcoming stage
@@ -518,7 +516,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
           );
         })}
 
-        {/* Render notes interspersed with stages based on chronological order */}
         {noteEvents.map((noteEvent, index) => {
           const animationDelay = isLoaded ? `delay-${(STAGE_ORDER.length + index + 1) * 200}` : "";
 
@@ -543,94 +540,6 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
   );
 };
 
-const StageChangeEvent = ({ event, allEvents }) => {
-  const STAGE_ORDER = [
-    "applied",
-    "screen",
-    "tech",
-    "offer",
-    "hired",
-    "rejected",
-  ];
-  const stageConfig = STAGE_CONFIG[event.newStage];
-
-  const stageEvents = allEvents.filter((e) => e.type === "stage");
-  const currentStageEvent = stageEvents.length > 0 ? stageEvents[0] : null;
-  const currentStage = currentStageEvent
-    ? currentStageEvent.newStage
-    : "applied";
-  const currentStageIndex = STAGE_ORDER.indexOf(currentStage);
-  const eventStageIndex = STAGE_ORDER.indexOf(event.newStage);
-
-  const isCurrent = event.timestamp === currentStageEvent?.timestamp;
-  const isCompleted = eventStageIndex < currentStageIndex;
-
-  return (
-    <>
-      <div
-        className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm transition-all duration-500 ${
-          isCurrent
-            ? `${stageConfig.bgColor} ${stageConfig.borderColor} border-2 ring-4 ring-green-500/30 animate-pulse`
-            : isCompleted
-            ? `${stageConfig.bgColor} ${stageConfig.borderColor} border-2 shadow-lg`
-            : "bg-gray-700/30 border-gray-600/30 border-2 opacity-40"
-        }`}
-      >
-        <stageConfig.icon
-          size={20}
-          className={
-            isCompleted || isCurrent
-              ? `bg-gradient-to-r ${stageConfig.color} bg-clip-text text-transparent`
-              : "text-gray-600"
-          }
-        />
-        {isCurrent && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-bounce"></div>
-        )}
-        {isCompleted && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-gray-800 timeline-completion-indicator">
-            <CheckCircle
-              size={12}
-              className="text-white absolute top-0 left-0"
-            />
-          </div>
-        )}
-      </div>
-      <div className="ml-6 flex-1">
-        <div
-          className={`bg-gradient-to-r backdrop-blur-sm rounded-xl p-4 shadow-lg transition-all duration-500 transform ${
-            isCurrent
-              ? `from-gray-700/80 to-gray-800/80 ${stageConfig.borderColor} border ring-1 ring-green-500/20 scale-105 shadow-2xl`
-              : `from-gray-700/60 to-gray-800/60 ${stageConfig.borderColor} border hover:scale-102 hover:shadow-xl`
-          }`}
-        >
-          <h3
-            className={`text-lg font-semibold mb-2 transition-colors duration-300 ${
-              isCurrent ? "text-white animate-pulse" : "text-white"
-            }`}
-          >
-            {stageConfig.label}
-          </h3>
-          <div className="flex items-center space-x-2 text-sm text-gray-300 animate-slide-in-up">
-            <Calendar size={14} />
-            <span>{new Date(event.timestamp).toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-};
-
-const NoteEvent = ({ event }) => (
-  <>
-    <div className="relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm bg-gray-700/30 border-gray-600/30 border-2">
-      <MessageSquare size={20} className="text-gray-400" />
-    </div>
-    <div className="ml-6 flex-1">
-      <Note note={event} />
-    </div>
-  </>
-);
 
 const DetailItem = ({ label, value, icon: Icon }) => (
   <div className="flex items-center space-x-3">
@@ -642,16 +551,3 @@ const DetailItem = ({ label, value, icon: Icon }) => (
   </div>
 );
 
-const ActionButton = ({ icon: Icon, label, delay = "" }) => {
-  <button
-    className={`w-full flex items-center space-x-3 px-4 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-all duration-200 group border border-gray-600/30 hover:border-blue-500/30 animate-slide-in-up ${delay}`}
-  >
-    <Icon
-      size={16}
-      className="text-gray-400 group-hover:text-blue-400 transition-colors"
-    />
-    <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-      {label}
-    </span>
-  </button>
-} ;
