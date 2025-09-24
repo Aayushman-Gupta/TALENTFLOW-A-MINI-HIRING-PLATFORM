@@ -19,14 +19,13 @@ import {
   FileText,
   MessageSquare,
   ChevronDown,
+  Timer,
 } from "lucide-react";
 import "./CandidateProfilePage.css";
 import NotesSection from "../notes/NotesSection";
 import Note from "../notes/Note";
 import CandidateAssessments from "../Assessments/CandidateAssessments";
 
-
-// --- API Service for this page ---
 const api = {
   async getCandidateDetails(candidateId) {
     const response = await fetch(`/api/candidates/${candidateId}`);
@@ -50,6 +49,13 @@ const api = {
       `/api/candidates/${candidateId}/notes?jobId=${jobId}`
     );
     if (!response.ok) throw new Error("Could not load notes");
+    return response.json();
+  },
+  async getAssessmentTiming(candidateId, jobId) {
+    const response = await fetch(
+      `/api/candidates/${candidateId}/assessment-timing?jobId=${jobId}`
+    );
+    if (!response.ok) return null;
     return response.json();
   },
 };
@@ -109,8 +115,8 @@ export default function CandidateProfilePage() {
   const [error, setError] = useState(null);
   const [timelineLoaded, setTimelineLoaded] = useState(false);
   const { candidateId } = useParams();
+  const [assessmentTiming, setAssessmentTiming] = useState(null);
 
-  // Initial fetch for candidate details and their associated jobs
   useEffect(() => {
     const fetchInitialData = async () => {
       setIsLoading(true);
@@ -123,7 +129,7 @@ export default function CandidateProfilePage() {
         setCandidate(candidateData);
         setJobs(jobsData);
         if (jobsData.length > 0) {
-          setSelectedJobId(jobsData[0].id); // Select the first job by default
+          setSelectedJobId(jobsData[0].id);
         }
       } catch (err) {
         setError(err.message);
@@ -134,29 +140,30 @@ export default function CandidateProfilePage() {
     fetchInitialData();
   }, [candidateId]);
 
-  // Fetch timeline and notes WHENEVER the selectedJobId changes
   useEffect(() => {
     if (!selectedJobId) {
       setTimeline([]);
       setNotes([]);
+      setAssessmentTiming(null);
       return;
     }
-
-    const fetchTimelineAndNotes = async () => {
+    const fetchJobSpecificData = async () => {
       setTimelineLoaded(false);
       try {
-        const [timelineData, notesData] = await Promise.all([
+        const [timelineData, notesData, timingData] = await Promise.all([
           api.getCandidateTimeline(candidateId, selectedJobId),
           api.getNotesForCandidate(candidateId, selectedJobId),
+          api.getAssessmentTiming(candidateId, selectedJobId),
         ]);
         setTimeline(timelineData);
         setNotes(notesData);
+        setAssessmentTiming(timingData);
         setTimeout(() => setTimelineLoaded(true), 300);
       } catch (err) {
         setError(err.message);
       }
     };
-    fetchTimelineAndNotes();
+    fetchJobSpecificData();
   }, [selectedJobId, candidateId]);
 
   const combinedEvents = useMemo(() => {
@@ -177,7 +184,24 @@ export default function CandidateProfilePage() {
     setNotes((prevNotes) => [newNote, ...prevNotes]);
   };
 
-  if (isLoading) {
+  const handleAssessmentSubmit = async () => {
+    if (candidateId && selectedJobId) {
+      try {
+        const timingData = await api.getAssessmentTiming(
+          candidateId,
+          selectedJobId
+        );
+        setAssessmentTiming(timingData);
+        console.log(
+          "SUCCESS: Refreshed assessment timing data after submission."
+        );
+      } catch (error) {
+        console.error("Failed to refresh assessment timing data:", error);
+      }
+    }
+  };
+
+  if (isLoading || !candidate) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -223,7 +247,6 @@ export default function CandidateProfilePage() {
           />
           Back
         </Link>
-
         <div className="relative overflow-hidden bg-gradient-to-r from-gray-800/80 to-gray-700/80 backdrop-blur-sm rounded-2xl border border-gray-600/50 shadow-2xl mb-8 animate-fade-in-up">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
           <div className="relative p-8">
@@ -243,7 +266,6 @@ export default function CandidateProfilePage() {
                   />
                 </div>
               </div>
-
               <div className="flex-1 animate-slide-in-right">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
@@ -258,7 +280,6 @@ export default function CandidateProfilePage() {
                     </span>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-300">
                   <div className="flex items-center space-x-3 bg-gray-700/30 px-4 py-3 rounded-lg backdrop-blur-sm animate-slide-in-up delay-100">
                     <Mail size={18} className="text-blue-400 flex-shrink-0" />
@@ -287,7 +308,6 @@ export default function CandidateProfilePage() {
             </div>
           </div>
         </div>
-
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           <div className="xl:col-span-1 space-y-6">
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg animate-slide-in-left">
@@ -331,19 +351,15 @@ export default function CandidateProfilePage() {
                 )}
               </div>
             </div>
-
-            {/* --- MODIFIED START: Add Assessment Component --- */}
             {candidate && (
               <div className="animate-slide-in-left delay-200">
                 <CandidateAssessments
                   candidateId={candidate.id}
                   candidateName={candidate.name}
+                  onAssessmentSubmit={handleAssessmentSubmit}
                 />
               </div>
             )}
-            {/* --- MODIFIED END --- */}
-
-
             {candidate && selectedJobId && (
               <NotesSection
                 candidateId={candidate.id}
@@ -352,7 +368,6 @@ export default function CandidateProfilePage() {
               />
             )}
           </div>
-
           <div className="xl:col-span-2">
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg animate-slide-in-right">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -381,6 +396,7 @@ export default function CandidateProfilePage() {
               <ComprehensiveTimeline
                 events={combinedEvents}
                 isLoaded={timelineLoaded}
+                assessmentTiming={assessmentTiming}
               />
             </div>
           </div>
@@ -390,18 +406,24 @@ export default function CandidateProfilePage() {
   );
 }
 
-const ComprehensiveTimeline = ({ events, isLoaded }) => {
-  const STAGE_ORDER = ["applied", "screen", "tech", "offer", "hired", "rejected"];
-
-  const stageEvents = events.filter(e => e.type === 'stage');
-  const noteEvents = events.filter(e => e.type === 'note');
-
+const ComprehensiveTimeline = ({ events, isLoaded, assessmentTiming }) => {
+  const STAGE_ORDER = [
+    "applied",
+    "screen",
+    "tech",
+    "offer",
+    "hired",
+    "rejected",
+  ];
+  const stageEvents = events.filter((e) => e.type === "stage");
+  const noteEvents = events.filter((e) => e.type === "note");
   const currentStageEvent = stageEvents.length > 0 ? stageEvents[0] : null;
-  const currentStage = currentStageEvent ? currentStageEvent.newStage : 'applied';
+  const currentStage = currentStageEvent
+    ? currentStageEvent.newStage
+    : "applied";
   const currentStageIndex = STAGE_ORDER.indexOf(currentStage);
-
   const completedStagesMap = new Map();
-  stageEvents.forEach(event => {
+  stageEvents.forEach((event) => {
     if (!completedStagesMap.has(event.newStage)) {
       completedStagesMap.set(event.newStage, event);
     }
@@ -410,8 +432,11 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
-        <Clock size={48} className="text-gray-600 mx-auto mb-4" />
-        <p className="text-gray-400 text-lg">No timeline events recorded for this job.</p>
+        {" "}
+        <Clock size={48} className="text-gray-600 mx-auto mb-4" />{" "}
+        <p className="text-gray-400 text-lg">
+          No timeline events recorded for this job.
+        </p>{" "}
       </div>
     );
   }
@@ -422,21 +447,20 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
       {isLoaded && (
         <div className="absolute left-6 top-0 w-0.5 bg-gradient-to-b from-blue-500 to-purple-600 animate-train-extend origin-top shadow-glow"></div>
       )}
-
       <div className="space-y-6">
         {STAGE_ORDER.map((stage, stageIndex) => {
           const stageConfig = STAGE_CONFIG[stage];
           const stageEvent = completedStagesMap.get(stage);
           const isCurrent = stage === currentStage;
           const isCompleted = stageEvent && !isCurrent;
-          const isUpcoming = stageIndex > currentStageIndex && stage !== 'rejected';
-
-          if (stage === 'rejected' && !isCurrent && !isCompleted) {
+          const isUpcoming =
+            stageIndex > currentStageIndex && stage !== "rejected";
+          if (stage === "rejected" && !isCurrent && !isCompleted) {
             return null;
           }
-
-          const animationDelay = isLoaded ? `delay-${(stageIndex + 1) * 200}` : "";
-
+          const animationDelay = isLoaded
+            ? `delay-${(stageIndex + 1) * 200}`
+            : "";
           return (
             <div
               key={stage}
@@ -444,36 +468,14 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                 isLoaded ? "animate-station-arrive" : "opacity-0"
               } ${animationDelay}`}
             >
-              <div
-                className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm transition-all duration-500 ${
-                  isCurrent
-                    ? `${stageConfig.bgColor} ${stageConfig.borderColor} border-2 ring-4 ring-green-500/30 animate-pulse`
-                    : isCompleted
-                    ? `${stageConfig.bgColor} ${stageConfig.borderColor} border-2 shadow-lg`
-                    : isUpcoming
-                    ? "bg-gray-700/30 border-gray-600/30 border-2 opacity-40"
-                    : `${stageConfig.bgColor} ${stageConfig.borderColor} border-2`
-                }`}
-              >
-                <stageConfig.icon
-                  size={20}
-                  className={
-                    isCompleted || isCurrent
-                      ? `bg-gradient-to-r ${stageConfig.color} bg-clip-text text-transparent`
-                      : isUpcoming
-                      ? "text-gray-600"
-                      : `bg-gradient-to-r ${stageConfig.color} bg-clip-text text-transparent`
-                  }
-                />
-                {isCurrent && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-bounce"></div>
-                )}
-                {isCompleted && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-gray-800 timeline-completion-indicator">
-                    <CheckCircle size={12} className="text-white absolute top-0 left-0" />
-                  </div>
-                )}
-              </div>
+              <StageChangeEvent
+                event={{ newStage: stage, timestamp: stageEvent?.timestamp }}
+                isCurrent={isCurrent}
+                isCompleted={isCompleted}
+                isUpcoming={isUpcoming}
+                stageConfig={stageConfig}
+                assessmentTiming={assessmentTiming}
+              />
               <div className="ml-6 flex-1">
                 <div
                   className={`bg-gradient-to-r backdrop-blur-sm rounded-xl p-4 shadow-lg transition-all duration-500 transform ${
@@ -495,30 +497,30 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                   >
                     {stageConfig.label}
                   </h3>
-
                   {stageEvent && (
-                    <div className={`flex items-center space-x-2 text-sm animate-slide-in-up ${
-                      isUpcoming ? "text-gray-600" : "text-gray-300"
-                    }`}>
+                    <div
+                      className={`flex items-center space-x-2 text-sm animate-slide-in-up ${
+                        isUpcoming ? "text-gray-600" : "text-gray-300"
+                      }`}
+                    >
                       <Calendar size={14} />
-                      <span>{new Date(stageEvent.timestamp).toLocaleString()}</span>
+                      <span>
+                        {new Date(stageEvent.timestamp).toLocaleString()}
+                      </span>
                     </div>
                   )}
-
                   {isUpcoming && (
-                    <div className="text-sm text-gray-500">
-                      Upcoming stage
-                    </div>
+                    <div className="text-sm text-gray-500">Upcoming stage</div>
                   )}
                 </div>
               </div>
             </div>
           );
         })}
-
         {noteEvents.map((noteEvent, index) => {
-          const animationDelay = isLoaded ? `delay-${(STAGE_ORDER.length + index + 1) * 200}` : "";
-
+          const animationDelay = isLoaded
+            ? `delay-${(STAGE_ORDER.length + index + 1) * 200}`
+            : "";
           return (
             <div
               key={`note-${noteEvent.id || noteEvent.createdAt}`}
@@ -526,12 +528,7 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
                 isLoaded ? "animate-station-arrive" : "opacity-0"
               } ${animationDelay}`}
             >
-              <div className="relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm bg-gray-700/30 border-gray-600/30 border-2">
-                <MessageSquare size={20} className="text-gray-400" />
-              </div>
-              <div className="ml-6 flex-1">
-                <Note note={noteEvent} />
-              </div>
+              <NoteEvent event={noteEvent} />
             </div>
           );
         })}
@@ -540,6 +537,61 @@ const ComprehensiveTimeline = ({ events, isLoaded }) => {
   );
 };
 
+const StageChangeEvent = ({
+  event,
+  isCurrent,
+  isCompleted,
+  isUpcoming,
+  stageConfig,
+  assessmentTiming,
+}) => (
+  <div className="relative group">
+    <div
+      className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm transition-all duration-500 ${
+        isCurrent
+          ? `${stageConfig.bgColor} ${stageConfig.borderColor} border-2 ring-4 ring-green-500/30 animate-pulse`
+          : isCompleted
+          ? `${stageConfig.bgColor} ${stageConfig.borderColor} border-2 shadow-lg`
+          : isUpcoming
+          ? "bg-gray-700/30 border-gray-600/30 border-2 opacity-40"
+          : `${stageConfig.bgColor} ${stageConfig.borderColor} border-2`
+      }`}
+    >
+      <stageConfig.icon
+        size={20}
+        className={
+          isCompleted || isCurrent
+            ? `bg-gradient-to-r ${stageConfig.color} bg-clip-text text-transparent`
+            : isUpcoming
+            ? "text-gray-600"
+            : `bg-gradient-to-r ${stageConfig.color} bg-clip-text text-transparent`
+        }
+      />
+      {isCurrent && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-bounce"></div>
+      )}
+      {isCompleted && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-gray-800 timeline-completion-indicator">
+          <CheckCircle size={12} className="text-white absolute top-0 left-0" />
+        </div>
+      )}
+    </div>
+    {event.newStage === "tech" && assessmentTiming && (
+      <AssessmentTooltip timing={assessmentTiming} />
+    )}
+  </div>
+);
+
+const NoteEvent = ({ event }) => (
+  <>
+    <div className="relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm bg-gray-700/30 border-gray-600/30 border-2">
+      <MessageSquare size={20} className="text-gray-400" />
+    </div>
+    <div className="ml-6 flex-1">
+      <Note note={event} />
+    </div>
+  </>
+);
 
 const DetailItem = ({ label, value, icon: Icon }) => (
   <div className="flex items-center space-x-3">
@@ -551,3 +603,37 @@ const DetailItem = ({ label, value, icon: Icon }) => (
   </div>
 );
 
+const AssessmentTooltip = ({ timing }) => {
+  const calculateDuration = (start, end) => {
+    if (!start || !end) return "In Progress";
+    const durationMs = new Date(end) - new Date(start);
+    if (durationMs < 0) return "Invalid";
+    const minutes = Math.floor(durationMs / 60000);
+    const seconds = ((durationMs % 60000) / 1000).toFixed(0);
+    return `${minutes}m ${seconds}s`;
+  };
+
+  return (
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-20">
+      <div className="flex items-center text-sm font-bold text-slate-200 mb-2">
+        <Timer size={16} className="mr-2 text-purple-400" />
+        Assessment Timing
+      </div>
+      <div className="space-y-1 text-xs text-slate-400">
+        <p>
+          <span className="font-semibold text-slate-300">Started:</span>{" "}
+          {new Date(timing.startTime).toLocaleString()}
+        </p>
+        <p>
+          <span className="font-semibold text-slate-300">Ended:</span>{" "}
+          {timing.endTime ? new Date(timing.endTime).toLocaleString() : "N/A"}
+        </p>
+        <p>
+          <span className="font-semibold text-slate-300">Duration:</span>{" "}
+          {calculateDuration(timing.startTime, timing.endTime)}
+        </p>
+      </div>
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-2.5 h-2.5 bg-slate-900 border-b border-r border-slate-700 transform rotate-45"></div>
+    </div>
+  );
+};

@@ -19,7 +19,30 @@ export class TalentFlowDB extends Dexie {
       assessments: "jobId, updatedAt",
       assessmentResponses: "applicationId, submittedAt",
       candidateAssessments: '[candidateId+jobId], jobId, status',
+      assessmentTimings: '[candidateId+jobId]',
+    }).upgrade(tx => {
+        console.log("Upgraded database to version 3 to include assessmentTimings table.");
+    });
 
+    this.version(2).stores({
+        jobs: 'id, status, order',
+        candidates: 'id, name, email',
+        applications: 'id, jobId, candidateId, stage',
+        assessments: "jobId",
+        assessmentResponses: "applicationId",
+        candidateTimeline: '++id, [candidateId+jobId]',
+        notes: '++id, [candidateId+jobId]',
+        candidateAssessments: '[candidateId+jobId], jobId, status',
+    });
+
+    this.version(1).stores({
+        jobs: 'id, status, order',
+        candidates: 'id, name, email',
+        applications: 'id, jobId, candidateId, stage',
+        assessments: "jobId",
+        assessmentResponses: "applicationId",
+        candidateTimeline: '++id, [candidateId+jobId]',
+        notes: '++id, [candidateId+jobId]',
     });
   }
 }

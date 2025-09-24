@@ -268,13 +268,12 @@ export const handlers = [
     try {
       const { id } = params;
       const updates = await request.json();
-
       const currentApplication = await db.applications.get(id);
       if (!currentApplication) {
         return HttpResponse.json({ message: "Application not found" }, { status: 404 });
       }
 
-      // --- RE-ADDED: Logic to save the history of the stage change ---
+      // LOGIC 1: Save stage change to the main timeline (as you requested)
       const timelineEntry = {
         candidateId: currentApplication.candidateId,
         jobId: currentApplication.jobId,
@@ -284,21 +283,30 @@ export const handlers = [
       };
       await db.candidateTimeline.add(timelineEntry);
       console.log(`HISTORY: Candidate ${timelineEntry.candidateId} moved from ${timelineEntry.previousStage} to ${timelineEntry.newStage}.`);
-      // --- END OF RE-ADDED LOGIC ---
 
+      // LOGIC 2 & 3: If moving TO the 'tech' stage, set status and start the timer
       if (updates.stage === "tech" && currentApplication.stage !== "tech") {
+        // Set 'pending' status for Kanban board logic
         const newAssessmentStatus = {
           candidateId: currentApplication.candidateId,
           jobId: currentApplication.jobId,
           status: "pending",
         };
         await db.candidateAssessments.put(newAssessmentStatus);
-        console.log(`%cMSW TRIGGER: Assessment status for Candidate ${newAssessmentStatus.candidateId} set to 'pending'.`, "color: #2563eb; font-weight: bold;");
+
+        // Create the new timing record with a start time
+        const timingRecord = {
+          candidateId: currentApplication.candidateId,
+          jobId: currentApplication.jobId,
+          startTime: new Date().toISOString(),
+          endTime: null, // End time is null until submitted
+        };
+        await db.assessmentTimings.put(timingRecord);
+        console.log(`%cASSESSMENT TIMER STARTED: Candidate ${timingRecord.candidateId}`, "color: #ef4444; font-weight: bold;");
       }
 
       await db.applications.update(id, updates);
-      const updatedApplication = await db.applications.get(id);
-      return HttpResponse.json(updatedApplication);
+      return HttpResponse.json(await db.applications.get(id));
     } catch (error) {
       console.error("MSW Error (PATCH /api/applications/:id):", error);
       return HttpResponse.json({ message: "Failed to update application" }, { status: 500 });
@@ -511,32 +519,54 @@ export const handlers = [
     }
   }),
 
-  http.post("/api/assessments/:jobId/submit", async ({ request }) => {
+  http.post("/api/assessments/:jobId/submit", async ({ request, params }) => {
     await simulateNetwork();
     try {
       const { applicationId, responses } = await request.json();
-      if (!applicationId || !responses) {
-        return HttpResponse.json(
-          { message: "Missing applicationId or responses" },
-          { status: 400 }
-        );
+      const { jobId } = params;
+      const application = await db.applications.get(applicationId);
+
+      if (application) {
+        // Update the status to 'submitted'
+        await db.candidateAssessments.put({
+            candidateId: application.candidateId,
+            jobId: jobId,
+            status: 'submitted',
+        });
+        // Update the timing record with the end time
+        await db.assessmentTimings.update([application.candidateId, jobId], {
+            endTime: new Date().toISOString()
+        });
+        console.log(`%cASSESSMENT TIMER ENDED: Candidate ${application.candidateId}`, "color: #22c55e; font-weight: bold;");
       }
-      const responseToSave = {
-        applicationId: applicationId,
-        responses: responses,
-        submittedAt: new Date().toISOString(),
-      };
+
+      const responseToSave = { applicationId, responses, submittedAt: new Date().toISOString() };
       await db.assessmentResponses.put(responseToSave);
-      console.log("Assessment Response Saved:", responseToSave);
+
       return HttpResponse.json(responseToSave, { status: 201 });
     } catch (error) {
       console.error("MSW Error (POST /api/assessments/:jobId/submit):", error);
-      return HttpResponse.json(
-        { message: "Failed to submit assessment" },
-        { status: 500 }
-      );
+      return HttpResponse.json({ message: "Failed to submit assessment" }, { status: 500 });
     }
   }),
+
+  http.get('/api/candidates/:candidateId/assessment-timing', async ({ request, params }) => {
+    await simulateNetwork();
+    try {
+        const { candidateId } = params;
+        const url = new URL(request.url);
+        const jobId = url.searchParams.get('jobId');
+
+        if (!jobId) return HttpResponse.json(null);
+
+        const timingRecord = await db.assessmentTimings.get([candidateId, jobId]);
+        return HttpResponse.json(timingRecord || null);
+    } catch (error) {
+        console.error("MSW Error (GET assessment-timing):", error);
+        return HttpResponse.json({ message: "Failed to fetch timing data" }, { status: 500 });
+    }
+  }),
+
 
   http.get("/api/assessment-responses/:applicationId", async ({ params }) => {
     await simulateNetwork();
