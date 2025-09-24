@@ -258,6 +258,7 @@ export default function CandidateAssessments({
           </motion.div>
         )}
       </AnimatePresence>
+      
     </div>
   );
 }
