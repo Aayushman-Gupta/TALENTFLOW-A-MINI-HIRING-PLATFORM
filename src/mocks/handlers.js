@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { db } from "../services/database";
-import { faker } from "@faker-js/faker"; // <-- ADDED THIS MISSING IMPORT
+import { faker } from "@faker-js/faker";
 
 // Define teamMembers directly in this file to avoid import issues
 const teamMembers = [
@@ -66,22 +66,18 @@ export const handlers = [
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
     const titleSearch = url.searchParams.get("title");
-
     try {
       let query = db.jobs.orderBy("order");
       if (status) {
         query = query.filter((job) => job.status === status);
       }
-
       let jobs = await query.toArray();
-
       if (titleSearch) {
         const searchTerm = titleSearch.toLowerCase();
         jobs = jobs.filter((job) =>
           job.title.toLowerCase().includes(searchTerm)
         );
       }
-
       return HttpResponse.json(jobs);
     } catch (error) {
       console.error("MSW Handler Error (GET /api/jobs):", error);
@@ -97,7 +93,6 @@ export const handlers = [
     try {
       const newJobData = await request.json();
       const jobCount = await db.jobs.count();
-
       const newJob = {
         id: crypto.randomUUID(),
         status: "active",
@@ -107,9 +102,7 @@ export const handlers = [
         ...newJobData,
       };
       await db.jobs.add(newJob);
-
       const allCandidates = await db.candidates.toArray();
-
       if (allCandidates.length > 0) {
         const numberOfApplications = faker.number.int({
           min: 1,
@@ -126,7 +119,6 @@ export const handlers = [
           stage: "applied",
           appliedAt: new Date().toISOString(),
         }));
-
         if (newApplications.length > 0) {
           await db.applications.bulkAdd(newApplications);
           console.log(
@@ -153,11 +145,9 @@ export const handlers = [
         ...updates,
         updatedAt: new Date().toISOString(),
       });
-
       if (updatedCount === 0) {
         return HttpResponse.json({ message: "Job not found" }, { status: 404 });
       }
-
       const updatedJob = await db.jobs.get(id);
       return HttpResponse.json(updatedJob);
     } catch (error) {
@@ -174,7 +164,6 @@ export const handlers = [
     try {
       const { id } = params;
       const job = await db.jobs.get(id);
-
       if (job) {
         return HttpResponse.json(job);
       } else {
@@ -199,7 +188,6 @@ export const handlers = [
         );
         await Promise.all(updates);
       });
-
       return HttpResponse.json({ message: "Reorder successful" });
     } catch (error) {
       console.error("MSW Handler Error (POST /api/jobs/reorder):", error);
@@ -224,115 +212,111 @@ export const handlers = [
     }
   }),
 
-
-http.get("/api/applications", async ({ request }) => {
+  // --- MINOR FIX: Changed endpoint from "/" to "/api/applications" ---
+  http.get("/api/applications", async ({ request }) => {
     await simulateNetwork();
     const url = new URL(request.url);
     const jobId = url.searchParams.get("jobId");
     const candidateId = url.searchParams.get("candidateId");
-
     try {
-        let applications;
-        // This logic allows the same endpoint to be used for different queries
-        if (candidateId) {
-            // Find all applications for a specific candidate
-            applications = await db.applications.where("candidateId").equals(candidateId).toArray();
-        } else if (jobId) {
-            // Find all applications for a specific job
-            applications = await db.applications.where("jobId").equals(jobId).toArray();
-        } else {
-            // Or get all applications if no filter is specified
-            applications = await db.applications.toArray();
-        }
-
-        // --- Enrich applications with candidate/job details if needed ---
-        // This part is more robust and useful for other parts of the app too
-        if (applications.length > 0) {
-            const candidateIds = [...new Set(applications.map(app => app.candidateId))];
-            const jobIds = [...new Set(applications.map(app => app.jobId))];
-
-            const candidates = await db.candidates.where("id").anyOf(candidateIds).toArray();
-            const jobs = await db.jobs.where("id").anyOf(jobIds).toArray();
-
-            const candidateMap = new Map(candidates.map(c => [c.id, c]));
-            const jobMap = new Map(jobs.map(j => [j.id, j]));
-
-            const enrichedApplications = applications.map(app => ({
-                ...app,
-                candidate: candidateMap.get(app.candidateId) || null,
-                job: jobMap.get(app.jobId) || null,
-            }));
-
-            return HttpResponse.json(enrichedApplications);
-        }
-
-        return HttpResponse.json([]);
-
-    } catch (error) {
-        console.error("MSW Error (GET /api/applications):", error);
-        return HttpResponse.json(
-            { message: "Failed to fetch applications" },
-            { status: 500 }
-        );
-    }
-}),
-
-
-
-  http.patch("/api/applications/:id", async ({ request, params }) => {
-    await simulateNetwork();
-    try {
-      const { id } = params;
-      const updates = await request.json();
-      const currentApplication = await db.applications.get(id);
-      if (!currentApplication) {
-        return HttpResponse.json(
-          { message: "Application not found" },
-          { status: 404 }
-        );
+      let applications;
+      if (candidateId) {
+        applications = await db.applications
+          .where("candidateId")
+          .equals(candidateId)
+          .toArray();
+      } else if (jobId) {
+        applications = await db.applications
+          .where("jobId")
+          .equals(jobId)
+          .toArray();
+      } else {
+        applications = await db.applications.toArray();
       }
-      const previousStage = currentApplication.stage;
-
-      const timelineEntry = {
-        candidateId: currentApplication.candidateId,
-        jobId: currentApplication.jobId,
-        previousStage: previousStage,
-        newStage: updates.stage,
-        timestamp: new Date().toISOString(),
-      };
-
-      await db.candidateTimeline.add(timelineEntry);
-      await db.applications.update(id, updates);
-
-      const updatedApplication = await db.applications.get(id);
-
-      console.log(
-        `TIMELINE EVENT CREATED: Candidate ${timelineEntry.candidateId} moved from ${previousStage} to ${updates.stage}`
-      );
-
-      return HttpResponse.json(updatedApplication);
+      if (applications.length > 0) {
+        const candidateIds = [
+          ...new Set(applications.map((app) => app.candidateId)),
+        ];
+        const jobIds = [...new Set(applications.map((app) => app.jobId))];
+        const candidates = await db.candidates
+          .where("id")
+          .anyOf(candidateIds)
+          .toArray();
+        const jobs = await db.jobs.where("id").anyOf(jobIds).toArray();
+        const candidateMap = new Map(candidates.map((c) => [c.id, c]));
+        const jobMap = new Map(jobs.map((j) => [j.id, j]));
+        const enrichedApplications = applications.map((app) => ({
+          ...app,
+          candidate: candidateMap.get(app.candidateId) || null,
+          job: jobMap.get(app.jobId) || null,
+        }));
+        return HttpResponse.json(enrichedApplications);
+      }
+      return HttpResponse.json([]);
     } catch (error) {
-      console.error("MSW Error (PATCH /api/applications/:id):", error);
+      console.error("MSW Error (GET /api/applications):", error);
       return HttpResponse.json(
-        { message: "Failed to update application" },
+        { message: "Failed to fetch applications" },
         { status: 500 }
       );
     }
   }),
 
+  // --- MODIFIED: This is the handler with your new logic ---
+  http.patch("/api/applications/:id", async ({ request, params }) => {
+    await simulateNetwork();
+    try {
+      const { id } = params;
+      const updates = await request.json();
+
+      const currentApplication = await db.applications.get(id);
+      if (!currentApplication) {
+        return HttpResponse.json({ message: "Application not found" }, { status: 404 });
+      }
+
+      // --- RE-ADDED: Logic to save the history of the stage change ---
+      const timelineEntry = {
+        candidateId: currentApplication.candidateId,
+        jobId: currentApplication.jobId,
+        previousStage: currentApplication.stage,
+        newStage: updates.stage,
+        timestamp: new Date().toISOString(),
+      };
+      await db.candidateTimeline.add(timelineEntry);
+      console.log(`HISTORY: Candidate ${timelineEntry.candidateId} moved from ${timelineEntry.previousStage} to ${timelineEntry.newStage}.`);
+      // --- END OF RE-ADDED LOGIC ---
+
+      if (updates.stage === "tech" && currentApplication.stage !== "tech") {
+        const newAssessmentStatus = {
+          candidateId: currentApplication.candidateId,
+          jobId: currentApplication.jobId,
+          status: "pending",
+        };
+        await db.candidateAssessments.put(newAssessmentStatus);
+        console.log(`%cMSW TRIGGER: Assessment status for Candidate ${newAssessmentStatus.candidateId} set to 'pending'.`, "color: #2563eb; font-weight: bold;");
+      }
+
+      await db.applications.update(id, updates);
+      const updatedApplication = await db.applications.get(id);
+      return HttpResponse.json(updatedApplication);
+    } catch (error) {
+      console.error("MSW Error (PATCH /api/applications/:id):", error);
+      return HttpResponse.json({ message: "Failed to update application" }, { status: 500 });
+    }
+  }),
+
   http.get("/api/candidates/:candidateId/jobs", async ({ params }) => {
+    // ... (rest of the file is unchanged)
     try {
       const { candidateId } = params;
       const applications = await db.applications
         .where({ candidateId })
         .toArray();
       const jobIds = [...new Set(applications.map((app) => app.jobId))];
-
       if (jobIds.length === 0) {
         return HttpResponse.json([]);
       }
       const jobs = await db.jobs.where("id").anyOf(jobIds).toArray();
-
       return HttpResponse.json(jobs);
     } catch (error) {
       console.error("MSW Error (GET candidate jobs):", error);
@@ -349,9 +333,7 @@ http.get("/api/applications", async ({ request }) => {
       const { candidateId } = params;
       const url = new URL(request.url);
       const jobId = url.searchParams.get("jobId");
-
       if (!jobId) return HttpResponse.json([]);
-
       try {
         const timelineEvents = await db.candidateTimeline
           .where({ candidateId, jobId })
@@ -392,9 +374,7 @@ http.get("/api/applications", async ({ request }) => {
       const { candidateId } = params;
       const url = new URL(request.url);
       const jobId = url.searchParams.get("jobId");
-
       if (!jobId) return HttpResponse.json([]);
-
       try {
         const notes = await db.notes
           .where({ candidateId, jobId })
@@ -417,28 +397,24 @@ http.get("/api/applications", async ({ request }) => {
       try {
         const { candidateId } = params;
         const { content, jobId } = await request.json();
-
         if (!jobId) {
           return HttpResponse.json(
             { message: "jobId is required" },
             { status: 400 }
           );
         }
-
         if (!content || content.trim() === "") {
           return HttpResponse.json(
             { message: "content is required" },
             { status: 400 }
           );
         }
-
         const mentionedNames = (content.match(/@([a-zA-Z\s]+)/g) || []).map(
           (m) => m.substring(1).trim()
         );
         const mentionedUserIds = teamMembers
           .filter((m) => mentionedNames.includes(m.name))
           .map((m) => m.id);
-
         const newNote = {
           candidateId,
           jobId,
@@ -447,10 +423,8 @@ http.get("/api/applications", async ({ request }) => {
           createdAt: new Date().toISOString(),
           mentionedUserIds,
         };
-
         const savedNoteId = await db.notes.add(newNote);
         const savedNote = { ...newNote, id: savedNoteId };
-
         console.log("Note saved successfully:", savedNote);
         return HttpResponse.json(savedNote, { status: 201 });
       } catch (error) {
@@ -462,94 +436,130 @@ http.get("/api/applications", async ({ request }) => {
       }
     }
   ),
+  // Add this new handler inside your `export const handlers = [...]` array
 
-   http.get("/api/assessments/:jobId", async ({ params }) => {
+  http.get("/api/jobs/:jobId/candidate-assessments", async ({ params }) => {
+    await simulateNetwork();
+    try {
+      const { jobId } = params;
+
+      // Fetch all status records from the 'candidateAssessments' table for the given job
+      const statuses = await db.candidateAssessments.where({ jobId }).toArray();
+
+      // Convert the array into a map object for easier and faster lookup on the frontend
+      // The result will be like: { "candidate-id-1": { status: "pending" }, "candidate-id-2": { status: "submitted" } }
+      const statusMap = statuses.reduce((acc, status) => {
+        acc[status.candidateId] = status;
+        return acc;
+      }, {});
+
+      return HttpResponse.json(statusMap);
+    } catch (error) {
+      console.error(
+        "MSW Error (GET /api/jobs/:jobId/candidate-assessments):",
+        error
+      );
+      return HttpResponse.json(
+        { message: "Failed to fetch assessment statuses" },
+        { status: 500 }
+      );
+    }
+  }),
+
+  http.get("/api/assessments/:jobId", async ({ params }) => {
     await simulateNetwork();
     try {
       const { jobId } = params;
       const assessment = await db.assessments.get(jobId);
-
       if (assessment) {
         return HttpResponse.json(assessment);
       }
-      // It's not an error if an assessment doesn't exist yet
-      return HttpResponse.json({ message: "Assessment not found" }, { status: 404 });
+      return HttpResponse.json(
+        { message: "Assessment not found" },
+        { status: 404 }
+      );
     } catch (error) {
       console.error("MSW Error (GET /api/assessments/:jobId):", error);
-      return HttpResponse.json({ message: "Failed to fetch assessment" }, { status: 500 });
+      return HttpResponse.json(
+        { message: "Failed to fetch assessment" },
+        { status: 500 }
+      );
     }
   }),
 
-  // PUT (Create or Update) an assessment for a job
   http.put("/api/assessments/:jobId", async ({ request, params }) => {
     await simulateNetwork();
     try {
       const { jobId } = params;
       const { assessmentData } = await request.json();
-
-      // For consistency, we can fetch the job title here
       const jobRecord = await db.jobs.get(jobId);
       const jobTitle = jobRecord ? jobRecord.title : "Unknown Job";
-
       const assessmentToSave = {
         jobId: jobId,
         jobTitle: jobTitle,
         assessmentData: assessmentData,
         updatedAt: new Date(),
       };
-
-      // 'put' will create a new record or update an existing one
       await db.assessments.put(assessmentToSave);
-
       return HttpResponse.json(assessmentToSave);
     } catch (error) {
       console.error("MSW Error (PUT /api/assessments/:jobId):", error);
-      return HttpResponse.json({ message: "Failed to save assessment" }, { status: 500 });
+      return HttpResponse.json(
+        { message: "Failed to save assessment" },
+        { status: 500 }
+      );
     }
   }),
 
-    http.post('/api/assessments/:jobId/submit', async ({ request }) => {
+  http.post("/api/assessments/:jobId/submit", async ({ request }) => {
     await simulateNetwork();
     try {
       const { applicationId, responses } = await request.json();
-
       if (!applicationId || !responses) {
-        return HttpResponse.json({ message: 'Missing applicationId or responses' }, { status: 400 });
+        return HttpResponse.json(
+          { message: "Missing applicationId or responses" },
+          { status: 400 }
+        );
       }
-
       const responseToSave = {
         applicationId: applicationId,
         responses: responses,
         submittedAt: new Date().toISOString(),
       };
-
-      // Use .put() to either create a new response or overwrite an existing one for the same application
       await db.assessmentResponses.put(responseToSave);
-      console.log('Assessment Response Saved:', responseToSave);
-
+      console.log("Assessment Response Saved:", responseToSave);
       return HttpResponse.json(responseToSave, { status: 201 });
     } catch (error) {
       console.error("MSW Error (POST /api/assessments/:jobId/submit):", error);
-      return HttpResponse.json({ message: 'Failed to submit assessment' }, { status: 500 });
+      return HttpResponse.json(
+        { message: "Failed to submit assessment" },
+        { status: 500 }
+      );
     }
   }),
 
-// GET to check for an existing assessment response for an application
-http.get("/api/assessment-responses/:applicationId", async ({ params }) => {
+  http.get("/api/assessment-responses/:applicationId", async ({ params }) => {
     await simulateNetwork();
     try {
-        const { applicationId } = params;
-        const response = await db.assessmentResponses.get(applicationId);
-
-        if (response) {
-            return HttpResponse.json(response);
-        } else {
-            return HttpResponse.json({ message: "Response not found" }, { status: 404 });
-        }
+      const { applicationId } = params;
+      const response = await db.assessmentResponses.get(applicationId);
+      if (response) {
+        return HttpResponse.json(response);
+      } else {
+        return HttpResponse.json(
+          { message: "Response not found" },
+          { status: 404 }
+        );
+      }
     } catch (error) {
-        console.error("MSW Error (GET /api/assessment-responses/:applicationId):", error);
-        return HttpResponse.json({ message: "Failed to fetch response" }, { status: 500 });
+      console.error(
+        "MSW Error (GET /api/assessment-responses/:applicationId):",
+        error
+      );
+      return HttpResponse.json(
+        { message: "Failed to fetch response" },
+        { status: 500 }
+      );
     }
-}),
-
+  }),
 ];

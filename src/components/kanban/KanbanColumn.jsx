@@ -6,7 +6,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CandidateCard } from "./CandidateCard";
 
-export function KanbanColumn({ id, title, applications }) {
+// --- MODIFIED: Accept the new assessmentStatuses prop ---
+export function KanbanColumn({ id, title, applications, assessmentStatuses }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
     data: { type: "Column", stageId: id },
@@ -33,7 +34,17 @@ export function KanbanColumn({ id, title, applications }) {
           strategy={verticalListSortingStrategy}
         >
           {applications.map((app) => (
-            <CandidateCard key={app.id} application={app} />
+            <CandidateCard
+              key={app.id}
+              application={app}
+              // --- MODIFIED: Pass the specific status down to the card ---
+              // We only care about the status if the column is 'tech'.
+              assessmentStatus={
+                id === 'tech' && app.candidateId
+                  ? assessmentStatuses[app.candidateId]?.status || 'pending'
+                  : null
+              }
+            />
           ))}
         </SortableContext>
 

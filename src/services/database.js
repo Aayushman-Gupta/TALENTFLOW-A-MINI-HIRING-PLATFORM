@@ -18,6 +18,8 @@ export class TalentFlowDB extends Dexie {
       notes: '++id, [candidateId+jobId], createdAt, *mentionedUserIds',
       assessments: "jobId, updatedAt",
       assessmentResponses: "applicationId, submittedAt",
+      candidateAssessments: '[candidateId+jobId], jobId, status',
+
     });
   }
 }
