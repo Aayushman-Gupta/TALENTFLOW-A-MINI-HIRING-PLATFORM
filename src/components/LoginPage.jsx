@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
-// --- Logo Component (kept for branding) ---
 const Logo = () => (
   <svg
     height="48"
@@ -21,9 +20,20 @@ const Logo = () => (
 );
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    console.log("Logging in with:", email, password);
+    // 🔹 Navigate after login (same logic as before)
+    navigate("/dashboard");
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0f172a] text-white">
-      {/* Top Section - Branding / Welcome */}
+      {/* Top Section */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-indigo-400">
           TalentFlow HR Portal
@@ -39,30 +49,39 @@ export default function LoginPage() {
           Sign in to your account
         </h2>
 
-        {/* Email */}
-        <div className="mb-4">
-          <label className="block text-sm text-gray-300 mb-1">Email</label>
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
+        <form onSubmit={handleLogin}>
+          {/* Email */}
+          <div className="mb-4">
+            <label className="block text-sm text-gray-300 mb-1">Email</label>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
 
-        {/* Password */}
-        <div className="mb-6">
-          <label className="block text-sm text-gray-300 mb-1">Password</label>
-          <input
-            type="password"
-            placeholder="Enter your password"
-            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
+          {/* Password */}
+          <div className="mb-6">
+            <label className="block text-sm text-gray-300 mb-1">Password</label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
 
-        {/* Sign in button */}
-        <button className="w-full py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 font-semibold transition">
-          Sign In
-        </button>
+          {/* Sign in button */}
+          <button
+            type="submit"
+            className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold transition"
+          >
+            Sign In
+          </button>
+        </form>
 
         {/* Divider */}
         <div className="flex items-center my-6">
@@ -80,14 +99,14 @@ export default function LoginPage() {
         <div className="mt-6 text-sm text-center text-gray-400">
           <p>
             Don’t have an account?{" "}
-            <a href="/register" className="text-indigo-400 hover:underline">
+            <p href="/register" className="text-indigo-400 hover:underline">
               Register
-            </a>
+            </p>
           </p>
           <p className="mt-2">
-            <a href="/forgot" className="text-indigo-400 hover:underline">
+            <p href="/forgot" className="text-indigo-400 hover:underline">
               Forgot password?
-            </a>
+            </p>
           </p>
         </div>
       </div>
