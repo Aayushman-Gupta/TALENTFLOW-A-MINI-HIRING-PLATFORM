@@ -21,6 +21,9 @@ async function enableMocking() {
   // The 'onUnhandledRequest: 'bypass'' option is good practice,
   // as it allows any real network requests (e.g., to load fonts) to pass through.
   return worker.start({
+    serviceWorker: {
+      url: '/mockServiceWorker.js',
+    },
     onUnhandledRequest: 'bypass',
   });
 }
