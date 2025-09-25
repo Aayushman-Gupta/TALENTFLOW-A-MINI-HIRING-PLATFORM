@@ -34,7 +34,8 @@ export function SortableJobCard({ job, children, isDragging }) {
         React.cloneElement creates a copy of the child (your JobCard)
         and injects the new isDragging prop into it.
       */}
-      {React.cloneElement(children, { isDragging })}
+      {/* {React.cloneElement(children, { isDragging })} */}
+      {children}
     </div>
   );
 }

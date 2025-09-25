@@ -19,11 +19,19 @@ import {
   Check,
   Award,
 } from "lucide-react";
+// --- (UNCHANGED) ---
 import JobModal from "./jobs/JobModal";
 import Toast from "./jobs/Toast";
 import { paginate } from "../utils/pagination";
 import PaginationControls from "../utils/PaginationControls";
-import { DndContext, closestCenter } from "@dnd-kit/core";
+// --- (STEP 1: ADD SENSOR IMPORTS) ---
+import {
+  DndContext,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+} from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -32,9 +40,8 @@ import {
 import { SortableJobCard } from "./jobs/SortableJobCard";
 import { motion } from "framer-motion";
 
-// --- API Service Functions ---
+// --- API Service and Header components remain unchanged ---
 const api = {
-  // --- NEW API FUNCTION for Dashboard Stats ---
   async getDashboardStats() {
     const response = await fetch("/api/dashboard/stats");
     if (!response.ok) throw new Error("Failed to fetch dashboard stats");
@@ -46,7 +53,6 @@ const api = {
     if (!response.ok) throw new Error("Failed to fetch jobs");
     return response.json();
   },
-  // Keep other api functions as they were...
   async createJob(jobData) {
     const response = await fetch("/api/jobs", {
       method: "POST",
@@ -67,7 +73,6 @@ const api = {
   },
 };
 
-// --- Dashboard Header & Stat Cards (No changes needed here) ---
 const DashboardHeader = ({ stats }) => (
   <header className="bg-gray-800 shadow-lg border-b border-gray-700 p-6 mb-6 rounded-b-xl">
     <div className="flex items-center justify-between mb-6">
@@ -153,11 +158,19 @@ export const DashBoardPage = () => {
     totalHired: 0,
   });
   const ITEMS_PER_PAGE = 5;
-
   const navigate = useNavigate();
   const wasDragged = useRef(false);
 
-  // --- REFACTORED to use the new stats API ---
+  // --- (STEP 2: CONFIGURE THE SENSOR) ---
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Require the mouse to move by 10 pixels before activating a drag
+      activationConstraint: {
+        distance: 10,
+      },
+    })
+  );
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -166,15 +179,12 @@ export const DashBoardPage = () => {
         status: filters.status === "all" ? "" : filters.status,
         title: filters.searchTerm,
       };
-
-      // Fetch jobs list and dashboard stats concurrently
       const [jobsData, statsData] = await Promise.all([
         api.getJobs(apiFilters),
-        api.getDashboardStats(), // Single call for all stats!
+        api.getDashboardStats(),
       ]);
-
       setAllJobs(jobsData);
-      setGlobalStats(statsData); // Directly set state from the API response
+      setGlobalStats(statsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -189,6 +199,7 @@ export const DashBoardPage = () => {
   const handleDragStart = () => {
     wasDragged.current = false;
   };
+
   const handleDragMove = () => {
     wasDragged.current = true;
   };
@@ -199,10 +210,8 @@ export const DashBoardPage = () => {
       const oldIndex = allJobs.findIndex((job) => job.id === active.id);
       const newIndex = allJobs.findIndex((job) => job.id === over.id);
       const newJobsOrder = arrayMove(allJobs, oldIndex, newIndex);
-
       const originalJobs = [...allJobs];
-      setAllJobs(newJobsOrder); // Optimistic update
-
+      setAllJobs(newJobsOrder);
       try {
         const orderedIds = newJobsOrder.map((job) => job.id);
         await api.reorderJobs(orderedIds);
@@ -212,7 +221,7 @@ export const DashBoardPage = () => {
           type: "success",
         });
       } catch (err) {
-        setAllJobs(originalJobs); // Rollback on failure
+        setAllJobs(originalJobs);
         setNotification({ show: true, message: err.message, type: "error" });
       }
     }
@@ -222,6 +231,7 @@ export const DashBoardPage = () => {
     if (!wasDragged.current) {
       navigate(`/jobs/${jobId}`);
     }
+    // Always reset after a click attempt
     wasDragged.current = false;
   };
 
@@ -258,9 +268,6 @@ export const DashBoardPage = () => {
     setFilters({ status: "active", searchTerm: "" });
   };
 
-  //... The rest of the component remains the same
-  // (jobRoleOptions, return statement, JobCard component, etc.)
-
   const jobRoleOptions = [
     "Frontend Developer",
     "Backend Developer",
@@ -288,9 +295,7 @@ export const DashBoardPage = () => {
         notification={notification}
         onClose={() => setNotification({ ...notification, show: false })}
       />
-
       <DashboardHeader stats={globalStats} />
-
       <div className="flex px-6 pb-6">
         <aside className="w-1/5 bg-slate-800 shadow-lg border border-slate-700 rounded-xl">
           <div className="p-6">
@@ -383,7 +388,9 @@ export const DashBoardPage = () => {
             </div>
           ) : (
             <>
+              {/* --- (STEP 3: APPLY THE SENSORS) --- */}
               <DndContext
+                sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
                 onDragMove={handleDragMove}
