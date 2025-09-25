@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -8,6 +14,10 @@ import {
   Calendar,
   MapPin,
   LoaderCircle,
+  Users,
+  FileText,
+  Check,
+  Award,
 } from "lucide-react";
 import JobModal from "./jobs/JobModal";
 import Toast from "./jobs/Toast";
@@ -20,17 +30,23 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { SortableJobCard } from "./jobs/SortableJobCard";
+import { motion } from "framer-motion";
 
-// --- API Service Functions (Assuming these are defined elsewhere) ---
+// --- API Service Functions ---
 const api = {
-
+  // --- NEW API FUNCTION for Dashboard Stats ---
+  async getDashboardStats() {
+    const response = await fetch("/api/dashboard/stats");
+    if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+    return response.json();
+  },
   async getJobs(filters) {
     const query = new URLSearchParams(filters).toString();
     const response = await fetch(`/api/jobs?${query}`);
     if (!response.ok) throw new Error("Failed to fetch jobs");
     return response.json();
   },
-
+  // Keep other api functions as they were...
   async createJob(jobData) {
     const response = await fetch("/api/jobs", {
       method: "POST",
@@ -40,8 +56,6 @@ const api = {
     if (!response.ok) throw new Error("Failed to create job");
     return response.json();
   },
-
-
   async reorderJobs(orderedIds) {
     const response = await fetch("/api/jobs/reorder", {
       method: "POST",
@@ -53,7 +67,72 @@ const api = {
   },
 };
 
-// --- Main Dashboard Component ---
+// --- Dashboard Header & Stat Cards (No changes needed here) ---
+const DashboardHeader = ({ stats }) => (
+  <header className="bg-gray-800 shadow-lg border-b border-gray-700 p-6 mb-6 rounded-b-xl">
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Talent Flow Dashboard</h1>
+        <p className="text-gray-300 mt-1">
+          A high-level overview of your hiring operations.
+        </p>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatsCard
+        icon={Briefcase}
+        title="Total Jobs"
+        value={stats.totalJobs}
+        subtitle={`${stats.activeJobs} Active`}
+        color="bg-blue-500"
+        delay={0.1}
+      />
+      <StatsCard
+        icon={Users}
+        title="Total Candidates"
+        value={stats.totalCandidates}
+        subtitle="In the talent pool"
+        color="bg-purple-500"
+        delay={0.2}
+      />
+      <StatsCard
+        icon={FileText}
+        title="Total Applications"
+        value={stats.totalApplications}
+        subtitle="Across all jobs"
+        color="bg-yellow-500"
+        delay={0.3}
+      />
+      <StatsCard
+        icon={Award}
+        title="Candidates Hired"
+        value={stats.totalHired}
+        subtitle="Successful placements"
+        color="bg-green-500"
+        delay={0.4}
+      />
+    </div>
+  </header>
+);
+
+const StatsCard = ({ icon: Icon, title, value, subtitle, color, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, delay }}
+    className="bg-gray-900/50 p-5 rounded-lg border border-gray-700/80 flex items-start"
+  >
+    <div className={`p-3 rounded-lg ${color} mr-4`}>
+      <Icon size={20} className="text-white" />
+    </div>
+    <div>
+      <p className="text-sm text-gray-400">{title}</p>
+      <p className="text-2xl font-bold text-white">{value}</p>
+      <p className="text-xs text-gray-500">{subtitle}</p>
+    </div>
+  </motion.div>
+);
+
 export const DashBoardPage = () => {
   const [allJobs, setAllJobs] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -66,12 +145,20 @@ export const DashBoardPage = () => {
     type: "success",
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [globalStats, setGlobalStats] = useState({
+    totalJobs: 0,
+    activeJobs: 0,
+    totalCandidates: 0,
+    totalApplications: 0,
+    totalHired: 0,
+  });
   const ITEMS_PER_PAGE = 5;
 
   const navigate = useNavigate();
   const wasDragged = useRef(false);
 
-  const fetchJobs = useCallback(async () => {
+  // --- REFACTORED to use the new stats API ---
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -79,8 +166,15 @@ export const DashBoardPage = () => {
         status: filters.status === "all" ? "" : filters.status,
         title: filters.searchTerm,
       };
-      const data = await api.getJobs(apiFilters);
-      setAllJobs(data);
+
+      // Fetch jobs list and dashboard stats concurrently
+      const [jobsData, statsData] = await Promise.all([
+        api.getJobs(apiFilters),
+        api.getDashboardStats(), // Single call for all stats!
+      ]);
+
+      setAllJobs(jobsData);
+      setGlobalStats(statsData); // Directly set state from the API response
     } catch (err) {
       setError(err.message);
     } finally {
@@ -89,13 +183,12 @@ export const DashBoardPage = () => {
   }, [filters]);
 
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    fetchData();
+  }, [fetchData]);
 
   const handleDragStart = () => {
     wasDragged.current = false;
   };
-
   const handleDragMove = () => {
     wasDragged.current = true;
   };
@@ -129,7 +222,6 @@ export const DashBoardPage = () => {
     if (!wasDragged.current) {
       navigate(`/jobs/${jobId}`);
     }
-    // Reset for the next interaction
     wasDragged.current = false;
   };
 
@@ -146,7 +238,7 @@ export const DashBoardPage = () => {
   const handleCreateJob = async (jobData) => {
     try {
       await api.createJob(jobData);
-      fetchJobs();
+      fetchData();
       setIsCreateModalOpen(false);
       setNotification({
         show: true,
@@ -166,11 +258,28 @@ export const DashBoardPage = () => {
     setFilters({ status: "active", searchTerm: "" });
   };
 
+  //... The rest of the component remains the same
+  // (jobRoleOptions, return statement, JobCard component, etc.)
+
   const jobRoleOptions = [
-    "Frontend Developer", "Backend Developer", "Full Stack Developer", "DevOps Engineer",
-    "Data Scientist", "Product Manager", "UI/UX Designer", "QA Engineer", "Mobile Developer",
-    "Data Analyst", "Software Architect", "Technical Lead", "Business Analyst",
-    "Marketing Manager", "Sales Executive", "HR Specialist", "Content Writer", "Graphic Designer",
+    "Frontend Developer",
+    "Backend Developer",
+    "Full Stack Developer",
+    "DevOps Engineer",
+    "Data Scientist",
+    "Product Manager",
+    "UI/UX Designer",
+    "QA Engineer",
+    "Mobile Developer",
+    "Data Analyst",
+    "Software Architect",
+    "Technical Lead",
+    "Business Analyst",
+    "Marketing Manager",
+    "Sales Executive",
+    "HR Specialist",
+    "Content Writer",
+    "Graphic Designer",
   ];
 
   return (
@@ -179,25 +288,11 @@ export const DashBoardPage = () => {
         notification={notification}
         onClose={() => setNotification({ ...notification, show: false })}
       />
-      <header className="bg-gray-800 shadow-lg border-b border-gray-700">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Jobs Dashboard</h1>
-              <p className="text-gray-300 mt-1">
-                Manage job postings and track applications
-              </p>
-            </div>
-            <div className="bg-purple-600 bg-opacity-20 px-3 py-2 rounded-lg border border-purple-500">
-              <span className="text-purple-300 font-medium">
-                {allJobs.length} Jobs Found
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
-      <div className="flex">
-        <aside className="w-1/5 bg-slate-800 shadow-lg border-r border-slate-700 min-h-screen">
+
+      <DashboardHeader stats={globalStats} />
+
+      <div className="flex px-6 pb-6">
+        <aside className="w-1/5 bg-slate-800 shadow-lg border border-slate-700 rounded-xl">
           <div className="p-6">
             <button
               onClick={() => setIsCreateModalOpen(true)}
@@ -257,7 +352,7 @@ export const DashBoardPage = () => {
           </div>
         </aside>
 
-        <main className="flex-1 p-6 bg-gray-900">
+        <main className="flex-1 p-6 pl-12 bg-gray-900">
           {isLoading ? (
             <div className="flex items-center justify-center h-96">
               <LoaderCircle size={48} className="text-blue-500 animate-spin" />
@@ -333,12 +428,9 @@ export const DashBoardPage = () => {
   );
 };
 
-// --- MODIFIED & SIMPLIFIED JobCard Component ---
 const JobCard = ({ job }) => {
   return (
-    <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6 hover:shadow-xl hover:border-blue-500 hover:scale-[1.02] transform transition-all duration-300 cursor-pointer"
-
-    >
+    <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6 hover:shadow-xl hover:border-blue-500 hover:scale-[1.02] transform transition-all duration-300 cursor-pointer">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-3">
@@ -346,8 +438,8 @@ const JobCard = ({ job }) => {
             <span
               className={`px-2 py-1 rounded-full text-xs font-medium ${
                 job.status === "active"
-                  ? "bg-green-500 bg-opacity-20 text-green-300 border border-green-500"
-                  : "bg-gray-500 bg-opacity-20 text-gray-300 border border-gray-500"
+                  ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                  : "bg-gray-500/20 text-gray-300 border border-gray-500/30"
               }`}
             >
               {job.status === "active" ? "Active" : "Archived"}
@@ -356,7 +448,7 @@ const JobCard = ({ job }) => {
           <div className="space-y-2">
             <div className="flex items-center text-gray-300">
               <Briefcase size={16} className="mr-2 text-purple-400" />
-              <span className="text-sm">{job.role}</span>
+              <span className="text-sm">{job.role || job.department}</span>
             </div>
             <div className="flex items-center text-gray-300">
               <MapPin size={16} className="mr-2 text-green-400" />
@@ -374,5 +466,3 @@ const JobCard = ({ job }) => {
     </div>
   );
 };
-
-export default DashBoardPage;

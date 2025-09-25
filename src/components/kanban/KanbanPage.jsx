@@ -211,14 +211,14 @@ export default function KanbanPage() {
               className="group mb-0.5 flex w-fit items-center text-xs text-blue-400 hover:text-blue-300"
             >
               <ArrowLeft
-                size={14}
+                size={16}
                 className="mr-1.5 transition-transform group-hover:-translate-x-1"
               />{" "}
               Back to Job Details
             </Link>
             <h1 className="text-lg font-bold text-slate-100">
               {job?.title}{" "}
-              <span className="font-normal text-slate-400">
+              <span className="font-bold text-slate-400">
                 | Candidate Pipeline
               </span>
             </h1>

@@ -9,10 +9,11 @@ import {
   Hash,
   LoaderCircle,
   Users,
+  LayoutDashboard, // <-- NEW: Icon for Kanban button
 } from "lucide-react";
 import { paginate } from "../../utils/pagination";
 import PaginationControls from "../../utils/PaginationControls";
-import CandidateProfilePage from "../candidates/CandidateProfilePage";
+import { motion, AnimatePresence } from "framer-motion"; // <-- NEW: For animations
 
 // --- API Service (no changes) ---
 const api = {
@@ -72,16 +73,11 @@ export default function ApplicationsPage() {
     fetchData();
   }, [fetchData]);
 
-  // --- THIS IS THE CORRECTED FILTERING LOGIC ---
   useEffect(() => {
     let filtered = [...applications];
-
-    // Stage Filter
     if (filters.stage !== "all") {
       filtered = filtered.filter((app) => app.stage === filters.stage);
     }
-
-    // Search Term Filter
     if (filters.searchTerm) {
       const term = filters.searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -90,23 +86,17 @@ export default function ApplicationsPage() {
           app.candidate?.email?.toLowerCase().includes(term)
       );
     }
-
-    // Applied Date Filter (Robust Implementation)
     if (filters.appliedDate !== "all") {
       const daysToSubtract = parseInt(filters.appliedDate, 10);
-      // This check ensures we only filter if we have a valid number
       if (!isNaN(daysToSubtract)) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
-
         filtered = filtered.filter((app) => {
           const appDate = new Date(app.appliedAt);
-          // Ensure the application date is valid before comparing
           return !isNaN(appDate) && appDate >= cutoffDate;
         });
       }
     }
-
     setFilteredApps(filtered);
   }, [applications, filters]);
 
@@ -144,25 +134,36 @@ export default function ApplicationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+      {/* --- UI ENHANCEMENT: Redesigned Header --- */}
       <header className="bg-gray-800 shadow-lg border-b border-gray-700 px-6 py-4 flex-shrink-0">
-        <Link
-          to={`/jobs/${jobId}`}
-          className="flex items-center text-blue-400 hover:text-blue-300 mb-4 group w-fit"
-        >
-          <ArrowLeft
-            size={18}
-            className="mr-2 transition-transform group-hover:-translate-x-1"
-          />
-          Back to Job Details
-        </Link>
-        <h1 className="text-2xl font-bold">
-          Applications for:{" "}
-          <span className="text-purple-400">{job?.title}</span>
-        </h1>
-        <p className="text-gray-300 mt-1">
-          Found {filteredApps.length} of {applications.length} total
-          applications.
-        </p>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h1 className="text-2xl font-bold">
+              Applications for:{" "}
+              <span className="text-purple-400">{job?.title}</span>
+            </h1>
+            <p className="text-gray-300 mt-1">
+              Showing {filteredApps.length} of {applications.length} total
+              applications.
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Link
+              to={`/jobs/${jobId}`}
+              className="flex items-center px-4 py-2 bg-slate-700/50 border border-slate-600 hover:bg-slate-700 rounded-lg transition-colors text-sm font-medium"
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Back to Job
+            </Link>
+            <Link
+              to={`/jobs/${jobId}/kanban`}
+              className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors text-sm font-bold shadow-lg hover:shadow-indigo-500/40 transform hover:-translate-y-px"
+            >
+              <LayoutDashboard size={16} className="mr-2" />
+              View Kanban Board
+            </Link>
+          </div>
+        </div>
       </header>
 
       <div className="flex flex-grow overflow-hidden">
@@ -232,11 +233,14 @@ export default function ApplicationsPage() {
         <main className="w-3/4 p-6 flex flex-col">
           {filteredApps.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 flex-grow">
-                {paginatedApps.map((app) => (
-                  <ApplicationCard key={app.id} application={app} />
-                ))}
-              </div>
+              {/* --- UI ENHANCEMENT: Added AnimatePresence for smooth filtering --- */}
+              <AnimatePresence>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 flex-grow">
+                  {paginatedApps.map((app) => (
+                    <ApplicationCard key={app.id} application={app} />
+                  ))}
+                </div>
+              </AnimatePresence>
               <PaginationControls
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -262,8 +266,17 @@ export default function ApplicationsPage() {
 
 const ApplicationCard = ({ application }) => {
   const { candidate, stage, appliedAt } = application;
+
+  // --- UI ENHANCEMENT: Added motion.div for card animation ---
   return (
-    <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-5 hover:shadow-xl hover:border-purple-500 transition-all duration-300 flex flex-col justify-between">
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.98 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-5 hover:shadow-xl hover:border-purple-500 transition-all duration-300 flex flex-col justify-between"
+    >
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">
@@ -274,13 +287,21 @@ const ApplicationCard = ({ application }) => {
           </span>
         </div>
         <div className="space-y-2 text-sm text-gray-300">
-          <p className="flex items-center"><Mail size={14} className="mr-2 text-gray-400" /> {candidate?.email || "No email"}</p>
-          <p className="flex items-center"><Calendar size={14} className="mr-2 text-gray-400" /> Applied: {new Date(appliedAt).toLocaleDateString()}</p>
-          <p className="flex items-center"><Hash size={14} className="mr-2 text-gray-400" /> App. ID: {application.id.slice(0, 8)}</p>
+          <p className="flex items-center">
+            <Mail size={14} className="mr-2 text-gray-400" />{" "}
+            {candidate?.email || "No email"}
+          </p>
+          <p className="flex items-center">
+            <Calendar size={14} className="mr-2 text-gray-400" /> Applied:{" "}
+            {new Date(appliedAt).toLocaleDateString()}
+          </p>
+          <p className="flex items-center">
+            <Hash size={14} className="mr-2 text-gray-400" /> App. ID:{" "}
+            {application.id.slice(0, 8)}
+          </p>
         </div>
       </div>
       <div className="mt-5 border-t border-gray-700 pt-4 flex justify-end">
-        {/* UPDATED: The button is now a Link component */}
         <Link
           to={`/candidate/${candidate.id}`}
           className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors"
@@ -288,8 +309,6 @@ const ApplicationCard = ({ application }) => {
           View Profile &rarr;
         </Link>
       </div>
-    </div>
+    </motion.div>
   );
 };
-
-

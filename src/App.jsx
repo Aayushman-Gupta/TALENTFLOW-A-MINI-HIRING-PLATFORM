@@ -25,8 +25,6 @@ function App() {
           path="/candidate/:candidateId"
           element={<CandidateProfilePage />}
         />
-
-        {/* --- NEW ROUTE FOR THE ASSESSMENT BUILDER --- */}
         <Route
           path="/jobs/:jobId/assessment-builder"
           element={<AssessmentBuilderPage />}

@@ -1,9 +1,6 @@
-// src/services/dataSeeder.js
+import { faker } from "@faker-js/faker";
+import { db } from "./database"; // Import your Dexie instance
 
-import { faker } from '@faker-js/faker';
-import { db } from './database'; // Import your Dexie instance
-
-// --- Data Generation Function ---
 const createRandomCandidate = () => {
   return {
     id: faker.string.uuid(),
@@ -12,66 +9,87 @@ const createRandomCandidate = () => {
   };
 };
 
+const createRandomJob = (order) => ({
+  id: faker.string.uuid(),
+  title: faker.person.jobTitle(),
+  department: faker.person.jobArea(),
+  location:
+    faker.location.city() + ", " + faker.location.state({ abbreviated: true }),
+  type: faker.helpers.arrayElement(["Full-time", "Part-time", "Contract"]),
+  description: faker.lorem.paragraphs(3),
+  requirements: faker.lorem.paragraphs(2),
+  status: "active",
+  order: order,
+  createdAt: faker.date.past({ years: 1 }).toISOString(),
+  updatedAt: faker.date.recent().toISOString(),
+});
+
 const createRandomApplication = (jobId, candidateId) => {
   return {
     id: faker.string.uuid(),
     jobId: jobId,
     candidateId: candidateId,
-    // As requested, all seeded applications start at the 'applied' stage
-    stage: 'applied',
-    // Use a recent date for a realistic application time
+    stage: "applied",
     appliedAt: faker.date.recent({ days: 30 }).toISOString(),
   };
 };
 
-
-// --- The Main Seeder Function ---
 export async function seedDatabase() {
   try {
-    // Check if the 'candidates' table is empty
+    // 1. Seed Candidates if the table is empty
     const candidateCount = await db.candidates.count();
     if (candidateCount === 0) {
-      console.log("Database 'candidates' table is empty. Seeding with 1000+ candidates...");
-      const candidatesToSeed = [];
-      for (let i = 0; i < 1050; i++) {
-        candidatesToSeed.push(createRandomCandidate());
-      }
+      console.log(
+        "Database 'candidates' table is empty. Seeding with 1000+ candidates..."
+      );
+      const candidatesToSeed = Array.from(
+        { length: 1050 },
+        createRandomCandidate
+      );
       await db.candidates.bulkAdd(candidatesToSeed);
       console.log("Candidate seeding complete.");
     }
 
+    // 2. Seed Jobs AND Applications together if the jobs table is empty
+    const jobCount = await db.jobs.count();
+    if (jobCount === 0) {
+      console.log(
+        "Database 'jobs' table is empty. Seeding with initial jobs and applications..."
+      );
 
-    const applicationCount = await db.applications.count();
-    if (applicationCount === 0) {
-      console.log("Database 'applications' table is empty. Seeding with initial data...");
+      // --- Create 5 to 6 new jobs ---
+      const jobsToSeed = [];
+      const numJobs = faker.number.int({ min: 5, max: 6 });
+      for (let i = 0; i < numJobs; i++) {
+        jobsToSeed.push(createRandomJob(i + 1));
+      }
+      await db.jobs.bulkAdd(jobsToSeed);
+      console.log(`${jobsToSeed.length} initial jobs seeded successfully.`);
 
-      const jobs = await db.jobs.where('status').equals('active').toArray();
-      const candidates = await db.candidates.toArray();
-
-      if (jobs.length > 0 && candidates.length > 0) {
+      // --- RE-ADDED: Create applications for these newly seeded jobs ---
+      const allCandidates = await db.candidates.toArray();
+      if (allCandidates.length > 0) {
         const applicationsToSeed = [];
-        const maxApplications = Math.min(candidates.length, 500); //  up to 500 applications
-        const usedCandidates = new Set();
+        for (const job of jobsToSeed) {
+          const numApplicants = faker.number.int({ min: 20, max: 50 });
+          const applicantsForThisJob = faker.helpers.arrayElements(
+            allCandidates,
+            numApplicants
+          );
 
-        for (let i = 0; i < maxApplications; i++) {
-          const randomJob = faker.helpers.arrayElement(jobs);
-          let randomCandidate = faker.helpers.arrayElement(candidates);
-
-          // Ensure we get a candidate that hasn't applied to this job yet
-          let attempts = 0;
-          while (usedCandidates.has(`${randomCandidate.id}-${randomJob.id}`) && attempts < 10) {
-            randomCandidate = faker.helpers.arrayElement(candidates);
-            attempts++;
-          }
-
-          if (!usedCandidates.has(`${randomCandidate.id}-${randomJob.id}`)) {
-              applicationsToSeed.push(createRandomApplication(randomJob.id, randomCandidate.id));
-              usedCandidates.add(`${randomCandidate.id}-${randomJob.id}`);
+          for (const candidate of applicantsForThisJob) {
+            applicationsToSeed.push(
+              createRandomApplication(job.id, candidate.id)
+            );
           }
         }
 
-        await db.applications.bulkAdd(applicationsToSeed);
-        console.log(`${applicationsToSeed.length} applications seeded successfully.`);
+        if (applicationsToSeed.length > 0) {
+          await db.applications.bulkAdd(applicationsToSeed);
+          console.log(
+            `${applicationsToSeed.length} applications seeded successfully for the initial jobs.`
+          );
+        }
       }
     }
   } catch (error) {
