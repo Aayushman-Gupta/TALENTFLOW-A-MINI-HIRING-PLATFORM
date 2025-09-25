@@ -156,15 +156,12 @@ export default function AssessmentBuilderPage() {
         if (response.ok) {
           const saved = await response.json();
           setAssessment(saved.assessmentData);
+          setSectionOrder(saved.assessmentData.sections.map(s => s.id));
         } else if (response.status !== 404) {
-          throw new Error("Failed to load assessment");
+          throw new Error('Failed to load assessment');
         }
       } catch (error) {
-        setNotification({
-          show: true,
-          message: "Could not load saved assessment.",
-          type: "error",
-        });
+        setNotification({ show: true, message: "Could not load saved assessment.", type: "error" });
       } finally {
         setIsLoading(false);
       }

@@ -37,7 +37,6 @@ const api = {
     if (!response.ok) throw new Error("Could not load jobs for candidate");
     return response.json();
   },
-  // --- FIX: New API function to get all applications for a candidate ---
   async getApplicationsForCandidate(candidateId) {
     const response = await fetch(
       `/api/applications?candidateId=${candidateId}`
@@ -137,7 +136,6 @@ const itemVariants = {
 export default function CandidateProfilePage() {
   const [candidate, setCandidate] = useState(null);
   const [jobs, setJobs] = useState([]);
-  // --- FIX: State to hold all applications and the specific one for the selected job ---
   const [applications, setApplications] = useState([]);
   const [currentApplication, setCurrentApplication] = useState(null);
   const [selectedJobId, setSelectedJobId] = useState("");
@@ -154,7 +152,6 @@ export default function CandidateProfilePage() {
       setIsLoading(true);
       setError(null);
       try {
-        // --- FIX: Fetch applications along with other initial data ---
         const [candidateData, jobsData, applicationsData] = await Promise.all([
           api.getCandidateDetails(candidateId),
           api.getJobsForCandidate(candidateId),
@@ -166,7 +163,6 @@ export default function CandidateProfilePage() {
         if (jobsData.length > 0) {
           const firstJobId = jobsData[0].id;
           setSelectedJobId(firstJobId);
-          // --- FIX: Set the current application based on the first job ---
           setCurrentApplication(
             applicationsData.find((app) => app.jobId === firstJobId)
           );
@@ -188,7 +184,6 @@ export default function CandidateProfilePage() {
       setCurrentApplication(null);
       return;
     }
-    // --- FIX: Find and set the current application when the job ID changes ---
     setCurrentApplication(
       applications.find((app) => app.jobId === selectedJobId)
     );
@@ -212,25 +207,17 @@ export default function CandidateProfilePage() {
     fetchJobSpecificData();
   }, [selectedJobId, candidateId, applications]);
 
-  // --- FIX: `useMemo` now correctly injects the initial "Applied" event ---
-  const combinedEvents = useMemo(() => {
-    const stageEvents = timeline.map((event) => ({
+  // Modified: Only create stage events for timeline, keep notes separate
+  const stageEvents = useMemo(() => {
+    let events = timeline.map((event) => ({
       ...event,
       type: "stage",
       date: new Date(event.timestamp),
     }));
 
-    const noteEvents = notes.map((note) => ({
-      ...note,
-      type: "note",
-      date: new Date(note.createdAt),
-    }));
-
-    let allEvents = [...stageEvents, ...noteEvents];
-
-    // This is the core fix: If we have an application record, create the "Applied" event
+    // Add the "Applied" event from application record
     if (currentApplication) {
-      allEvents.push({
+      events.push({
         type: "stage",
         newStage: "applied",
         timestamp: currentApplication.appliedAt,
@@ -238,13 +225,13 @@ export default function CandidateProfilePage() {
       });
     }
 
-    // Remove potential duplicates and sort everything by date
+    // Remove duplicates and sort by date
     const uniqueEvents = Array.from(
-      new Set(allEvents.map((e) => e.date.toISOString()))
-    ).map((date) => allEvents.find((e) => e.date.toISOString() === date));
+      new Set(events.map((e) => e.date.toISOString()))
+    ).map((date) => events.find((e) => e.date.toISOString() === date));
 
     return uniqueEvents.sort((a, b) => b.date - a.date);
-  }, [timeline, notes, currentApplication]);
+  }, [timeline, currentApplication]);
 
   const handleNoteAdded = (newNote) => {
     setNotes((prevNotes) => [newNote, ...prevNotes]);
@@ -292,13 +279,8 @@ export default function CandidateProfilePage() {
     );
   }
 
-  const stageEventsForCurrentStage = combinedEvents.filter(
-    (e) => e.type === "stage"
-  );
   const currentStage =
-    stageEventsForCurrentStage.length > 0
-      ? stageEventsForCurrentStage[0].newStage
-      : "applied";
+    stageEvents.length > 0 ? stageEvents[0].newStage : "applied";
   const stageConfig = STAGE_CONFIG[currentStage] || STAGE_CONFIG.applied;
 
   return (
@@ -326,7 +308,6 @@ export default function CandidateProfilePage() {
           variants={itemVariants}
           className="relative overflow-hidden bg-gradient-to-r from-gray-800/80 to-gray-700/80 backdrop-blur-sm rounded-2xl border border-gray-600/50 shadow-2xl mb-8"
         >
-          {/* Header content... */}
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
           <div className="relative p-8">
             <div className="flex flex-col lg:flex-row items-start lg:items-center space-y-6 lg:space-y-0 lg:space-x-8">
@@ -403,7 +384,7 @@ export default function CandidateProfilePage() {
             variants={itemVariants}
             className="xl:col-span-1 space-y-6"
           >
-            {/* Left column content (Details, Assessments, Notes)... */}
+            {/* Candidate Details */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg">
               <h2 className="text-xl font-semibold mb-6 flex items-center">
                 <User size={22} className="mr-3 text-purple-400" />
@@ -445,6 +426,8 @@ export default function CandidateProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* Assessments */}
             {candidate && (
               <CandidateAssessments
                 candidateId={candidate.id}
@@ -452,17 +435,77 @@ export default function CandidateProfilePage() {
                 onAssessmentSubmit={handleAssessmentSubmit}
               />
             )}
+
+            {/* Notes Section - Enhanced */}
             {candidate && selectedJobId && (
-              <NotesSection
-                candidateId={candidate.id}
-                jobId={selectedJobId}
-                onNoteAdded={handleNoteAdded}
-              />
+              <motion.div
+                variants={itemVariants}
+                className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 shadow-lg overflow-hidden"
+              >
+                <div className="p-6 border-b border-gray-700/50">
+                  <h2 className="text-xl font-semibold flex items-center">
+                    <MessageSquare size={22} className="mr-3 text-blue-400" />
+                    Notes & Comments
+                    {notes.length > 0 && (
+                      <span className="ml-2 px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                        {notes.length}
+                      </span>
+                    )}
+                  </h2>
+                </div>
+
+                {/* Notes Input Section */}
+                <div className="p-6 bg-gray-700/30">
+                  <NotesSection
+                    candidateId={candidate.id}
+                    jobId={selectedJobId}
+                    onNoteAdded={handleNoteAdded}
+                  />
+                </div>
+
+                {/* Notes Display Section */}
+                <div className="max-h-96 overflow-y-auto">
+                  <AnimatePresence>
+                    {notes.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="p-6 text-center"
+                      >
+                        <MessageSquare
+                          size={32}
+                          className="text-gray-600 mx-auto mb-2"
+                        />
+                        <p className="text-gray-500 text-sm">
+                          No notes yet. Add your first note above.
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <div className="space-y-3 p-6">
+                        {notes.map((note, index) => (
+                          <motion.div
+                            key={note.id || note.createdAt}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="transform hover:scale-[1.02] transition-all duration-200"
+                          >
+                            <div className="bg-gray-900/50 rounded-lg border border-gray-600/30 p-4">
+                              <Note note={note} />
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
             )}
           </motion.div>
 
+          {/* Timeline Section */}
           <motion.div variants={itemVariants} className="xl:col-span-2">
-            {/* Right column content (Timeline)... */}
             <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700/50 p-6 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
                 <h2 className="text-2xl font-semibold flex items-center">
@@ -487,8 +530,8 @@ export default function CandidateProfilePage() {
                   />
                 </div>
               </div>
-              <ComprehensiveTimeline
-                events={combinedEvents}
+              <StageOnlyTimeline
+                events={stageEvents}
                 isLoaded={timelineLoaded}
                 assessmentTiming={assessmentTiming}
               />
@@ -500,9 +543,8 @@ export default function CandidateProfilePage() {
   );
 }
 
-// --- All helper components (ComprehensiveTimeline, etc.) remain unchanged ---
-const ComprehensiveTimeline = ({ events, isLoaded, assessmentTiming }) => {
-  // ... same as before
+// Updated Timeline Component - Only shows stage events
+const StageOnlyTimeline = ({ events, isLoaded, assessmentTiming }) => {
   const STAGE_ORDER = [
     "applied",
     "screen",
@@ -511,20 +553,15 @@ const ComprehensiveTimeline = ({ events, isLoaded, assessmentTiming }) => {
     "hired",
     "rejected",
   ];
-  const stageEvents = events.filter((e) => e.type === "stage");
-  const noteEvents = events.filter((e) => e.type === "note");
 
-  // This logic now works correctly because `stageEvents` is guaranteed to have the "applied" event
-  const currentStageEvent = stageEvents.length > 0 ? stageEvents[0] : null;
+  const currentStageEvent = events.length > 0 ? events[0] : null;
   const currentStage = currentStageEvent
     ? currentStageEvent.newStage
     : "applied";
   const currentStageIndex = STAGE_ORDER.indexOf(currentStage);
 
   const completedStagesMap = new Map();
-  stageEvents.forEach((event) => {
-    // Use the timestamp as part of the key to ensure uniqueness if stages are repeated
-    const key = `${event.newStage}-${event.timestamp}`;
+  events.forEach((event) => {
     if (!completedStagesMap.has(event.newStage)) {
       completedStagesMap.set(event.newStage, event);
     }
@@ -584,6 +621,7 @@ const ComprehensiveTimeline = ({ events, isLoaded, assessmentTiming }) => {
           if (stage === "rejected" && !isCurrent && !stageEvent) {
             return null;
           }
+
           return (
             <motion.div
               key={stage}
@@ -640,15 +678,6 @@ const ComprehensiveTimeline = ({ events, isLoaded, assessmentTiming }) => {
             </motion.div>
           );
         })}
-        {noteEvents.map((noteEvent) => (
-          <motion.div
-            key={`note-${noteEvent.id || noteEvent.createdAt}`}
-            variants={itemVariants}
-            className="relative flex items-start"
-          >
-            <NoteEvent event={noteEvent} />
-          </motion.div>
-        ))}
       </motion.div>
     </div>
   );
@@ -692,17 +721,6 @@ const StageChangeEvent = ({
       <AssessmentTooltip timing={assessmentTiming} />
     )}
   </div>
-);
-
-const NoteEvent = ({ event }) => (
-  <>
-    <div className="relative z-10 flex items-center justify-center w-12 h-12 rounded-full backdrop-blur-sm bg-gray-700/30 border-gray-600/30 border-2">
-      <MessageSquare size={20} className="text-gray-400" />
-    </div>
-    <div className="ml-6 flex-1">
-      <Note note={event} />
-    </div>
-  </>
 );
 
 const DetailItem = ({ label, value, icon: Icon }) => (
