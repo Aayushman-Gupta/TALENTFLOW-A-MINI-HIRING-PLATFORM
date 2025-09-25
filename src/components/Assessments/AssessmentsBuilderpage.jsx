@@ -12,33 +12,33 @@ import {
   PlusCircle,
   Type,
   CheckSquare,
+  List,
   Trash2,
   ArrowLeft,
   ChevronDown,
   GripVertical,
   CheckCircle,
   XCircle,
+  FileText,
+  Settings,
+  Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { db } from "../../services/database"; // Corrected path
 
-// --- Helper to generate unique IDs ---
+// --- LOGIC REMAINS UNCHANGED ---
 const generateId = (prefix) =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-// --- Toast Notification Component ---
 const Toast = ({ notification, onClose }) => {
+  // Same logic...
   useEffect(() => {
     if (notification.show) {
       const timer = setTimeout(() => {
         onClose();
-      }, 3000); // Auto-dismiss after 3 seconds
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [notification, onClose]);
-
   const isSuccess = notification.type === "success";
-
   return (
     <AnimatePresence>
       {notification.show && (
@@ -46,9 +46,8 @@ const Toast = ({ notification, onClose }) => {
           initial={{ opacity: 0, y: -20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.95 }}
-          transition={{ ease: "easeOut", duration: 0.3 }}
           className={`fixed top-5 right-5 z-50 flex items-center p-4 rounded-lg shadow-lg text-white ${
-            isSuccess ? "bg-green-500" : "bg-red-500"
+            isSuccess ? "bg-green-600" : "bg-red-600"
           }`}
         >
           {isSuccess ? (
@@ -63,7 +62,7 @@ const Toast = ({ notification, onClose }) => {
   );
 };
 
-// --- Draggable Section Component (for the PREVIEW) ---
+// --- UI ENHANCEMENT: Refreshed styling for the preview ---
 const SortablePreviewSection = ({ section, questions }) => {
   const {
     attributes,
@@ -77,79 +76,54 @@ const SortablePreviewSection = ({ section, questions }) => {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.7 : 1,
-    boxShadow: isDragging
-      ? "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
-      : "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white rounded-lg border border-slate-200 touch-none mb-6"
+      className="bg-slate-800 rounded-lg border border-slate-700 touch-none mb-6 shadow-lg"
     >
       <div
         {...attributes}
         {...listeners}
-        className="flex items-center p-4 cursor-grab bg-slate-50 rounded-t-lg border-b border-slate-200"
+        className="flex items-center p-4 cursor-grab bg-slate-900/50 rounded-t-lg border-b border-slate-700"
       >
-        <GripVertical size={20} className="text-slate-400 mr-4" />
-        <h2 className="text-xl font-semibold text-slate-700">
+        <GripVertical size={20} className="text-slate-500 mr-4" />
+        <h2 className="text-xl font-semibold text-slate-200">
           {section.title}
         </h2>
       </div>
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         {questions.map((q, index) => (
-          <div key={q.id} className="mb-6 last:mb-0">
-            <label className="block text-md font-medium text-slate-700 mb-3">
+          <div key={q.id}>
+            <label className="block text-md font-medium text-slate-300 mb-3">
               {index + 1}. {q.label}
             </label>
-            {q.type === "single-choice" && (
+            {/* Render preview elements with dark theme styling */}
+            {["single-choice", "multi-choice"].includes(q.type) && (
               <div className="space-y-2">
                 {q.options.map((opt) => (
-                  <div key={opt.id} className="flex items-center">
-                    <input
-                      type="radio"
-                      name={q.id}
-                      id={opt.id}
-                      className="h-4 w-4 text-indigo-600 border-slate-300"
+                  <div
+                    key={opt.id}
+                    className="flex items-center p-3 bg-slate-700/50 border border-slate-600 rounded-md"
+                  >
+                    <div
+                      className={`h-4 w-4 border-2 border-slate-500 ${
+                        q.type === "single-choice" ? "rounded-full" : "rounded"
+                      }`}
                     />
-                    <label
-                      htmlFor={opt.id}
-                      className="ml-3 block text-sm text-slate-600"
-                    >
+                    <span className="ml-3 block text-sm text-slate-400">
                       {opt.text}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-            {q.type === "multi-choice" && (
-              <div className="space-y-2">
-                {q.options.map((opt) => (
-                  <div key={opt.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name={q.id}
-                      id={opt.id}
-                      className="h-4 w-4 text-indigo-600 border-slate-300 rounded"
-                    />
-                    <label
-                      htmlFor={opt.id}
-                      className="ml-3 block text-sm text-slate-600"
-                    >
-                      {opt.text}
-                    </label>
+                    </span>
                   </div>
                 ))}
               </div>
             )}
             {q.type === "short-text" && (
-              <input
-                type="text"
-                placeholder="Your answer here..."
-                className="w-full p-2 border border-slate-300 rounded-md"
-              />
+              <div className="w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-sm text-slate-500">
+                Candidate's answer...
+              </div>
             )}
           </div>
         ))}
@@ -158,13 +132,13 @@ const SortablePreviewSection = ({ section, questions }) => {
   );
 };
 
-// --- Main Builder Component ---
 export default function AssessmentBuilderPage() {
   const { jobId } = useParams();
   const [assessment, setAssessment] = useState({
     title: "New Assessment",
     sections: [{ id: generateId("sec"), title: "Section 1", questions: [] }],
   });
+  // ... All other state and logic hooks remain exactly the same ...
   const [sectionOrder, setSectionOrder] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState({
@@ -173,24 +147,19 @@ export default function AssessmentBuilderPage() {
     type: "success",
   });
 
+  // --- ALL LOGIC (useEffect, handleSave, update functions) IS UNCHANGED ---
   useEffect(() => {
     const loadAssessment = async () => {
       setIsLoading(true);
       try {
         const response = await fetch(`/api/assessments/${jobId}`);
-
-        // If an assessment exists (200 OK), load it.
-        // If not (404 Not Found), the component will just use the default state.
         if (response.ok) {
-          const savedAssessmentRecord = await response.json();
-          setAssessment(savedAssessmentRecord.assessmentData);
+          const saved = await response.json();
+          setAssessment(saved.assessmentData);
         } else if (response.status !== 404) {
-           // Handle other errors besides "not found"
-           throw new Error('Failed to load assessment');
+          throw new Error("Failed to load assessment");
         }
-
       } catch (error) {
-        console.error("Failed to load assessment from API:", error);
         setNotification({
           show: true,
           message: "Could not load saved assessment.",
@@ -219,43 +188,42 @@ export default function AssessmentBuilderPage() {
   const handleSaveAssessment = async () => {
     try {
       const response = await fetch(`/api/assessments/${jobId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assessmentData: assessment }),
       });
-
       if (!response.ok) {
-        throw new Error('API responded with an error');
+        throw new Error("API error");
       }
-
       setNotification({
         show: true,
         message: "Assessment saved successfully!",
         type: "success",
       });
     } catch (error) {
-      console.error("Failed to save assessment:", error);
       setNotification({
         show: true,
-        message: "Error: Could not save assessment.",
+        message: "Error: Could not save.",
         type: "error",
       });
     }
   };
 
+  // --- All handler functions (updateAssessmentTitle, addSection, etc.) are unchanged ---
   const updateAssessmentTitle = (newTitle) =>
     setAssessment((prev) => ({ ...prev, title: newTitle }));
-  const addSection = () => {
-    const newSection = {
-      id: generateId("sec"),
-      title: `New Section ${assessment.sections.length + 1}`,
-      questions: [],
-    };
+  const addSection = () =>
     setAssessment((prev) => ({
       ...prev,
-      sections: [...prev.sections, newSection],
+      sections: [
+        ...prev.sections,
+        {
+          id: generateId("sec"),
+          title: `New Section ${prev.sections.length + 1}`,
+          questions: [],
+        },
+      ],
     }));
-  };
   const updateSectionTitle = (sectionId, newTitle) =>
     setAssessment((prev) => ({
       ...prev,
@@ -263,24 +231,28 @@ export default function AssessmentBuilderPage() {
         sec.id === sectionId ? { ...sec, title: newTitle } : sec
       ),
     }));
-  const addQuestion = (sectionId, type) => {
-    const newQuestion = {
-      id: generateId("q"),
-      type,
-      label: `New ${type.replace("-", " ")} question`,
-      options: ["single-choice", "multi-choice"].includes(type)
-        ? [{ id: generateId("opt"), text: "Option 1" }]
-        : [],
-    };
+  const addQuestion = (sectionId, type) =>
     setAssessment((prev) => ({
       ...prev,
       sections: prev.sections.map((sec) =>
         sec.id === sectionId
-          ? { ...sec, questions: [...sec.questions, newQuestion] }
+          ? {
+              ...sec,
+              questions: [
+                ...sec.questions,
+                {
+                  id: generateId("q"),
+                  type,
+                  label: `New ${type.replace("-", " ")} question`,
+                  options: ["single-choice", "multi-choice"].includes(type)
+                    ? [{ id: generateId("opt"), text: "Option 1" }]
+                    : [],
+                },
+              ],
+            }
           : sec
       ),
     }));
-  };
   const updateQuestionProp = (sectionId, qId, prop, val) =>
     setAssessment((prev) => ({
       ...prev,
@@ -370,13 +342,13 @@ export default function AssessmentBuilderPage() {
     }
   };
 
-  if (isLoading) {
+  // ...
+  if (isLoading)
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-100 text-slate-500">
-        Loading Assessment...
+      <div className="flex items-center justify-center h-screen bg-slate-100">
+        Loading...
       </div>
     );
-  }
 
   return (
     <>
@@ -384,70 +356,71 @@ export default function AssessmentBuilderPage() {
         notification={notification}
         onClose={() => setNotification({ ...notification, show: false })}
       />
-      <div className="flex flex-col h-screen font-sans bg-slate-100">
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-10 border-b border-slate-200">
-          <div>
+      {/* UI ENHANCEMENT: Main layout and header refreshed */}
+      <div className="flex flex-col h-screen font-sans bg-gray-50">
+        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-10 border-b border-gray-200 shrink-0">
+          <div className="flex items-center gap-4">
             <Link
               to={`/jobs/${jobId}`}
-              className="flex items-center text-slate-600 hover:text-indigo-600 group"
+              className="flex items-center text-gray-600 hover:text-indigo-600"
             >
               <ArrowLeft size={18} className="mr-2" /> Back to Job
             </Link>
-            <h1 className="text-2xl font-bold text-slate-800">
+            <div className="w-px h-6 bg-gray-200" />
+            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <FileText size={20} className="text-indigo-500" />
               Assessment Builder
             </h1>
           </div>
           <button
             onClick={handleSaveAssessment}
-            className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-all shadow-sm hover:shadow-md"
+            className="bg-indigo-600 text-white font-bold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
           >
             Save Assessment
           </button>
         </header>
 
         <div className="flex flex-grow overflow-hidden">
-          <div className="w-1/2 bg-white p-6 overflow-y-auto border-r border-slate-200">
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-600 mb-1">
-                Assessment Title
+          {/* UI ENHANCEMENT: Editor Panel (Left) */}
+          <div className="w-1/2 bg-white p-6 overflow-y-auto border-r border-gray-200 space-y-6">
+            <div className="p-4 border border-gray-200 rounded-lg">
+              <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+                <Settings size={16} /> Assessment Title
               </label>
               <input
                 type="text"
                 value={assessment.title}
                 onChange={(e) => updateAssessmentTitle(e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full text-2xl font-bold p-2 -ml-2 rounded bg-transparent hover:bg-gray-100 focus:bg-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
-            <hr className="border-slate-200" />
+
             {assessment.sections.map((section) => (
               <details
                 key={section.id}
                 open
-                className="group border-b border-slate-200 last:border-b-0 py-4"
+                className="group bg-white border border-gray-200 rounded-lg"
               >
-                <summary className="flex justify-between items-center cursor-pointer list-none">
+                <summary className="flex justify-between items-center cursor-pointer list-none p-4">
                   <input
                     type="text"
                     value={section.title}
                     onChange={(e) =>
                       updateSectionTitle(section.id, e.target.value)
                     }
-                    className="text-xl font-semibold text-slate-700 w-full p-1 -ml-1 rounded bg-transparent hover:bg-slate-100 focus:bg-slate-100"
+                    className="text-xl font-semibold text-gray-700 w-full p-1 -ml-1 rounded bg-transparent hover:bg-gray-100 focus:bg-gray-100"
                   />
                   <ChevronDown
                     size={20}
-                    className="text-slate-500 group-open:rotate-180 transition-transform"
+                    className="text-gray-500 group-open:rotate-180 transition-transform"
                   />
                 </summary>
-                <div className="mt-4 pl-2">
+                <div className="p-4 border-t border-gray-200 space-y-4">
                   {section.questions.map((q, index) => (
                     <div
                       key={q.id}
-                      className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4"
+                      className="bg-gray-50 p-4 rounded-lg border border-gray-200"
                     >
-                      <label className="block text-sm font-medium text-slate-600 mb-2">
-                        Question #{index + 1}
-                      </label>
                       <input
                         type="text"
                         value={q.label}
@@ -459,21 +432,23 @@ export default function AssessmentBuilderPage() {
                             e.target.value
                           )
                         }
-                        className="w-full p-2 border border-slate-300 rounded-md"
+                        className="w-full p-2 border border-gray-300 rounded-md font-medium text-gray-800"
+                        placeholder={`Question #${index + 1}`}
                       />
-                      <p className="text-xs text-slate-500 mt-2">
-                        Type: {q.type}
-                      </p>
                       {["single-choice", "multi-choice"].includes(q.type) && (
                         <div className="mt-4 space-y-2">
-                          <h4 className="text-sm font-medium text-slate-600">
-                            Options
-                          </h4>
                           {q.options.map((opt) => (
                             <div
                               key={opt.id}
                               className="flex items-center space-x-2"
                             >
+                              <div
+                                className={`w-4 h-4 shrink-0 bg-white border-2 border-gray-300 ${
+                                  q.type === "single-choice"
+                                    ? "rounded-full"
+                                    : "rounded-sm"
+                                }`}
+                              />
                               <input
                                 type="text"
                                 value={opt.text}
@@ -485,13 +460,14 @@ export default function AssessmentBuilderPage() {
                                     e.target.value
                                   )
                                 }
-                                className="w-full p-2 border border-slate-200 rounded-md"
+                                className="w-full p-2 border border-gray-200 rounded-md text-sm"
+                                placeholder="Option text"
                               />
                               <button
                                 onClick={() =>
                                   removeOption(section.id, q.id, opt.id)
                                 }
-                                className="p-2 text-slate-400 hover:text-red-500"
+                                className="p-2 text-gray-400 hover:text-red-500"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -499,35 +475,35 @@ export default function AssessmentBuilderPage() {
                           ))}
                           <button
                             onClick={() => addOption(section.id, q.id)}
-                            className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold"
+                            className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold pt-2 flex items-center gap-1"
                           >
-                            + Add Option
+                            <PlusCircle size={14} /> Add Option
                           </button>
                         </div>
                       )}
                     </div>
                   ))}
-                  <div className="mt-6 p-2 border-t border-dashed border-slate-300">
-                    <h4 className="text-sm font-medium text-slate-600 mb-2">
-                      Add Question
-                    </h4>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className="mt-4 pt-4 border-t border-dashed border-gray-300">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => addQuestion(section.id, "single-choice")}
-                        className="text-xs p-2 bg-slate-100 border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-300"
+                        className="flex items-center justify-center gap-2 text-sm p-2 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
                       >
+                        <List size={14} />
                         Single Choice
                       </button>
                       <button
                         onClick={() => addQuestion(section.id, "multi-choice")}
-                        className="text-xs p-2 bg-slate-100 border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-300"
+                        className="flex items-center justify-center gap-2 text-sm p-2 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
                       >
+                        <CheckSquare size={14} />
                         Multi-Choice
                       </button>
                       <button
                         onClick={() => addQuestion(section.id, "short-text")}
-                        className="text-xs p-2 bg-slate-100 border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-300"
+                        className="flex items-center justify-center gap-2 text-sm p-2 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
                       >
+                        <Type size={14} />
                         Short Text
                       </button>
                     </div>
@@ -537,25 +513,28 @@ export default function AssessmentBuilderPage() {
             ))}
             <button
               onClick={addSection}
-              className="mt-6 w-full flex items-center justify-center p-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+              className="mt-6 w-full flex items-center justify-center p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
             >
               <PlusCircle size={20} className="mr-2" /> Add New Section
             </button>
           </div>
 
-          <div
-            className="w-1/2 p-8 overflow-y-auto bg-slate-200"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23cbd5e1' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41-1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41zM20 18.6l2.83-2.83 1.41 1.41L21.41 20l2.83 2.83-1.41 1.41L20 21.41l-2.83 2.83-1.41-1.41L18.59 20l-2.83-2.83 1.41-1.41L20 18.59z'/%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-          >
-            <div className="bg-white p-8 rounded-lg shadow-2xl max-w-2xl mx-auto">
-              <h1 className="text-3xl font-bold mb-2 text-slate-800">
+          {/* UI ENHANCEMENT: Preview Panel (Right) */}
+          <div className="w-1/2 p-8 overflow-y-auto bg-slate-900">
+            <div className="max-w-2xl mx-auto">
+              <div className="mb-8 text-center">
+                <h2 className="text-lg font-bold text-white flex items-center justify-center gap-2">
+                  <Eye size={20} /> Live Preview
+                </h2>
+                <p className="text-slate-400 text-sm">
+                  Drag sections to re-order them
+                </p>
+              </div>
+              <h1 className="text-3xl font-bold mb-2 text-white text-center">
                 {assessment.title}
               </h1>
-              <p className="text-slate-500 mb-8">
-                Rank the following sections by dragging them into your desired
-                order.
+              <p className="text-slate-400 mb-8 text-center">
+                This is how the assessment will appear to candidates.
               </p>
               <DndContext
                 collisionDetection={closestCenter}

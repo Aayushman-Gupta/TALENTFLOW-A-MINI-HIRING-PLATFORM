@@ -247,18 +247,18 @@ export default function CandidateAssessments({
             exit={{ opacity: 0, height: 0 }}
             className="mt-4 overflow-hidden"
           >
-            <div className="p-3 bg-slate-900/50 rounded-md border border-slate-700">
+            {/* <div className="p-3 bg-slate-900/50 rounded-md border border-slate-700">
               <h4 className="font-semibold text-slate-300">
                 Submitted Responses:
               </h4>
               <pre className="text-xs text-slate-400 bg-slate-800 p-2 rounded mt-2 overflow-auto max-h-40">
                 {JSON.stringify(submittedResponses, null, 2)}
               </pre>
-            </div>
+            </div> */}
           </motion.div>
         )}
       </AnimatePresence>
-      
+
     </div>
   );
 }
