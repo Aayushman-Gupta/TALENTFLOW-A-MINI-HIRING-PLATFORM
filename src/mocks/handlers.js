@@ -283,6 +283,10 @@ export const handlers = [
       }
 
       // LOGIC 1: Save stage change to the main timeline (as you requested)
+      /* The above code is creating a `timelineEntry` object with properties such as `candidateId`,
+      `jobId`, `previousStage`, `newStage`, and `timestamp`. It is capturing information related to
+      a candidate's application process, such as the candidate's ID, job ID, previous stage, updated
+      stage, and the timestamp when this entry is created. */
       const timelineEntry = {
         candidateId: currentApplication.candidateId,
         jobId: currentApplication.jobId,

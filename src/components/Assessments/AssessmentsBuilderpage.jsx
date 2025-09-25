@@ -28,8 +28,8 @@ import { motion, AnimatePresence } from "framer-motion";
 // --- LOGIC REMAINS UNCHANGED ---
 const generateId = (prefix) =>
   `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 const Toast = ({ notification, onClose }) => {
-  // Same logic...
   useEffect(() => {
     if (notification.show) {
       const timer = setTimeout(() => {
@@ -62,7 +62,7 @@ const Toast = ({ notification, onClose }) => {
   );
 };
 
-// --- UI ENHANCEMENT: Refreshed styling for the preview ---
+// --- UI REMAINS THE SAME (ALREADY DARK THEMED) ---
 const SortablePreviewSection = ({ section, questions }) => {
   const {
     attributes,
@@ -100,7 +100,6 @@ const SortablePreviewSection = ({ section, questions }) => {
             <label className="block text-md font-medium text-slate-300 mb-3">
               {index + 1}. {q.label}
             </label>
-            {/* Render preview elements with dark theme styling */}
             {["single-choice", "multi-choice"].includes(q.type) && (
               <div className="space-y-2">
                 {q.options.map((opt) => (
@@ -138,7 +137,6 @@ export default function AssessmentBuilderPage() {
     title: "New Assessment",
     sections: [{ id: generateId("sec"), title: "Section 1", questions: [] }],
   });
-  // ... All other state and logic hooks remain exactly the same ...
   const [sectionOrder, setSectionOrder] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState({
@@ -156,12 +154,16 @@ export default function AssessmentBuilderPage() {
         if (response.ok) {
           const saved = await response.json();
           setAssessment(saved.assessmentData);
-          setSectionOrder(saved.assessmentData.sections.map(s => s.id));
+          setSectionOrder(saved.assessmentData.sections.map((s) => s.id));
         } else if (response.status !== 404) {
-          throw new Error('Failed to load assessment');
+          throw new Error("Failed to load assessment");
         }
       } catch (error) {
-        setNotification({ show: true, message: "Could not load saved assessment.", type: "error" });
+        setNotification({
+          show: true,
+          message: "Could not load saved assessment.",
+          type: "error",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -205,8 +207,6 @@ export default function AssessmentBuilderPage() {
       });
     }
   };
-
-  // --- All handler functions (updateAssessmentTitle, addSection, etc.) are unchanged ---
   const updateAssessmentTitle = (newTitle) =>
     setAssessment((prev) => ({ ...prev, title: newTitle }));
   const addSection = () =>
@@ -339,10 +339,9 @@ export default function AssessmentBuilderPage() {
     }
   };
 
-  // ...
   if (isLoading)
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-100">
+      <div className="flex items-center justify-center h-screen bg-slate-900 text-slate-300">
         Loading...
       </div>
     );
@@ -353,19 +352,19 @@ export default function AssessmentBuilderPage() {
         notification={notification}
         onClose={() => setNotification({ ...notification, show: false })}
       />
-      {/* UI ENHANCEMENT: Main layout and header refreshed */}
-      <div className="flex flex-col h-screen font-sans bg-gray-50">
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center z-10 border-b border-gray-200 shrink-0">
+      {/* --- UI THEME UPDATED TO DARK --- */}
+      <div className="flex flex-col h-screen font-sans bg-slate-900 text-slate-300">
+        <header className="bg-slate-800 p-4 flex justify-between items-center z-10 border-b border-slate-700 shrink-0">
           <div className="flex items-center gap-4">
             <Link
               to={`/jobs/${jobId}`}
-              className="flex items-center text-gray-600 hover:text-indigo-600"
+              className="flex items-center text-slate-400 hover:text-indigo-400"
             >
               <ArrowLeft size={18} className="mr-2" /> Back to Job
             </Link>
-            <div className="w-px h-6 bg-gray-200" />
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <FileText size={20} className="text-indigo-500" />
+            <div className="w-px h-6 bg-slate-600" />
+            <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+              <FileText size={20} className="text-indigo-400" />
               Assessment Builder
             </h1>
           </div>
@@ -378,17 +377,17 @@ export default function AssessmentBuilderPage() {
         </header>
 
         <div className="flex flex-grow overflow-hidden">
-          {/* UI ENHANCEMENT: Editor Panel (Left) */}
-          <div className="w-1/2 bg-white p-6 overflow-y-auto border-r border-gray-200 space-y-6">
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <label className="text-sm font-medium text-gray-600 mb-1 flex items-center gap-2">
+          {/* --- UI THEME UPDATED TO DARK --- */}
+          <div className="w-1/2 bg-slate-800 p-6 overflow-y-auto border-r border-slate-700 space-y-6">
+            <div className="p-4 border border-slate-700 rounded-lg">
+              <label className="text-sm font-medium text-slate-400 mb-1 flex items-center gap-2">
                 <Settings size={16} /> Assessment Title
               </label>
               <input
                 type="text"
                 value={assessment.title}
                 onChange={(e) => updateAssessmentTitle(e.target.value)}
-                className="w-full text-2xl font-bold p-2 -ml-2 rounded bg-transparent hover:bg-gray-100 focus:bg-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full text-2xl font-bold text-slate-100 p-2 -ml-2 rounded bg-transparent hover:bg-slate-700/50 focus:bg-slate-700/50 focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
 
@@ -396,7 +395,7 @@ export default function AssessmentBuilderPage() {
               <details
                 key={section.id}
                 open
-                className="group bg-white border border-gray-200 rounded-lg"
+                className="group bg-transparent border border-slate-700 rounded-lg"
               >
                 <summary className="flex justify-between items-center cursor-pointer list-none p-4">
                   <input
@@ -405,18 +404,18 @@ export default function AssessmentBuilderPage() {
                     onChange={(e) =>
                       updateSectionTitle(section.id, e.target.value)
                     }
-                    className="text-xl font-semibold text-gray-700 w-full p-1 -ml-1 rounded bg-transparent hover:bg-gray-100 focus:bg-gray-100"
+                    className="text-xl font-semibold text-slate-200 w-full p-1 -ml-1 rounded bg-transparent hover:bg-slate-700/50 focus:bg-slate-700/50"
                   />
                   <ChevronDown
                     size={20}
-                    className="text-gray-500 group-open:rotate-180 transition-transform"
+                    className="text-slate-400 group-open:rotate-180 transition-transform"
                   />
                 </summary>
-                <div className="p-4 border-t border-gray-200 space-y-4">
+                <div className="p-4 border-t border-slate-700 space-y-4">
                   {section.questions.map((q, index) => (
                     <div
                       key={q.id}
-                      className="bg-gray-50 p-4 rounded-lg border border-gray-200"
+                      className="bg-slate-900/50 p-4 rounded-lg border border-slate-700"
                     >
                       <input
                         type="text"
@@ -429,7 +428,7 @@ export default function AssessmentBuilderPage() {
                             e.target.value
                           )
                         }
-                        className="w-full p-2 border border-gray-300 rounded-md font-medium text-gray-800"
+                        className="w-full p-2 border border-slate-600 rounded-md font-medium bg-slate-700 text-slate-200 placeholder:text-slate-400"
                         placeholder={`Question #${index + 1}`}
                       />
                       {["single-choice", "multi-choice"].includes(q.type) && (
@@ -440,7 +439,7 @@ export default function AssessmentBuilderPage() {
                               className="flex items-center space-x-2"
                             >
                               <div
-                                className={`w-4 h-4 shrink-0 bg-white border-2 border-gray-300 ${
+                                className={`w-4 h-4 shrink-0 bg-slate-600 border-2 border-slate-500 ${
                                   q.type === "single-choice"
                                     ? "rounded-full"
                                     : "rounded-sm"
@@ -457,14 +456,14 @@ export default function AssessmentBuilderPage() {
                                     e.target.value
                                   )
                                 }
-                                className="w-full p-2 border border-gray-200 rounded-md text-sm"
+                                className="w-full p-2 border border-slate-600 rounded-md text-sm bg-slate-700 text-slate-300 placeholder:text-slate-500"
                                 placeholder="Option text"
                               />
                               <button
                                 onClick={() =>
                                   removeOption(section.id, q.id, opt.id)
                                 }
-                                className="p-2 text-gray-400 hover:text-red-500"
+                                className="p-2 text-slate-500 hover:text-red-500"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -472,7 +471,7 @@ export default function AssessmentBuilderPage() {
                           ))}
                           <button
                             onClick={() => addOption(section.id, q.id)}
-                            className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold pt-2 flex items-center gap-1"
+                            className="text-sm text-indigo-400 hover:text-indigo-300 font-semibold pt-2 flex items-center gap-1"
                           >
                             <PlusCircle size={14} /> Add Option
                           </button>
@@ -480,25 +479,25 @@ export default function AssessmentBuilderPage() {
                       )}
                     </div>
                   ))}
-                  <div className="mt-4 pt-4 border-t border-dashed border-gray-300">
+                  <div className="mt-4 pt-4 border-t border-dashed border-slate-600">
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => addQuestion(section.id, "single-choice")}
-                        className="flex items-center justify-center gap-2 text-sm p-2 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                        className="flex items-center justify-center gap-2 text-sm p-2 bg-slate-700 border border-slate-600 rounded text-slate-300 hover:bg-slate-600 hover:border-indigo-500 hover:text-indigo-400"
                       >
                         <List size={14} />
                         Single Choice
                       </button>
                       <button
                         onClick={() => addQuestion(section.id, "multi-choice")}
-                        className="flex items-center justify-center gap-2 text-sm p-2 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                        className="flex items-center justify-center gap-2 text-sm p-2 bg-slate-700 border border-slate-600 rounded text-slate-300 hover:bg-slate-600 hover:border-indigo-500 hover:text-indigo-400"
                       >
                         <CheckSquare size={14} />
                         Multi-Choice
                       </button>
                       <button
                         onClick={() => addQuestion(section.id, "short-text")}
-                        className="flex items-center justify-center gap-2 text-sm p-2 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                        className="flex items-center justify-center gap-2 text-sm p-2 bg-slate-700 border border-slate-600 rounded text-slate-300 hover:bg-slate-600 hover:border-indigo-500 hover:text-indigo-400"
                       >
                         <Type size={14} />
                         Short Text
@@ -510,13 +509,13 @@ export default function AssessmentBuilderPage() {
             ))}
             <button
               onClick={addSection}
-              className="mt-6 w-full flex items-center justify-center p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+              className="mt-6 w-full flex items-center justify-center p-3 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-indigo-500 hover:text-indigo-400 transition-colors"
             >
               <PlusCircle size={20} className="mr-2" /> Add New Section
             </button>
           </div>
 
-          {/* UI ENHANCEMENT: Preview Panel (Right) */}
+          {/* --- PREVIEW PANEL (RIGHT - REMAINS UNCHANGED) --- */}
           <div className="w-1/2 p-8 overflow-y-auto bg-slate-900">
             <div className="max-w-2xl mx-auto">
               <div className="mb-8 text-center">
