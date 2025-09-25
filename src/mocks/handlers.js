@@ -62,31 +62,47 @@ const simulateNetwork = async () => {
 
 export const handlers = [
   http.get("/api/jobs", async ({ request }) => {
-    await simulateNetwork();
-    const url = new URL(request.url);
-    const status = url.searchParams.get("status");
-    const titleSearch = url.searchParams.get("title");
-    try {
-      let query = db.jobs.orderBy("order");
-      if (status) {
-        query = query.filter((job) => job.status === status);
-      }
-      let jobs = await query.toArray();
-      if (titleSearch) {
-        const searchTerm = titleSearch.toLowerCase();
-        jobs = jobs.filter((job) =>
-          job.title.toLowerCase().includes(searchTerm)
-        );
-      }
-      return HttpResponse.json(jobs);
-    } catch (error) {
-      console.error("MSW Handler Error (GET /api/jobs):", error);
-      return HttpResponse.json(
-        { message: "Failed to access database" },
-        { status: 500 }
+  await simulateNetwork();
+  const url = new URL(request.url);
+  const status = url.searchParams.get("status");
+  const titleSearch = url.searchParams.get("title");
+  try {
+    // --- Step 1: Fetch jobs as before ---
+    let query = db.jobs.orderBy("order");
+    if (status) {
+      query = query.filter((job) => job.status === status);
+    }
+    let jobs = await query.toArray();
+    if (titleSearch) {
+      const searchTerm = titleSearch.toLowerCase();
+      jobs = jobs.filter((job) =>
+        job.title.toLowerCase().includes(searchTerm)
       );
     }
-  }),
+
+    // --- Step 2: Fetch all applications and count them efficiently ---
+    const allApplications = await db.applications.toArray();
+    const applicationCounts = allApplications.reduce((acc, app) => {
+      acc[app.jobId] = (acc[app.jobId] || 0) + 1;
+      return acc;
+    }, {});
+
+    // --- Step 3: Add the real candidateCount to each job object ---
+    const jobsWithCounts = jobs.map(job => ({
+      ...job,
+      candidateCount: applicationCounts[job.id] || 0,
+    }));
+
+    return HttpResponse.json(jobsWithCounts); // Return the enriched job data
+
+  } catch (error) {
+    console.error("MSW Handler Error (GET /api/jobs):", error);
+    return HttpResponse.json(
+      { message: "Failed to access database" },
+      { status: 500 }
+    );
+  }
+}),
 
   http.post("/api/jobs", async ({ request }) => {
     await simulateNetwork();
@@ -631,4 +647,47 @@ export const handlers = [
       );
     }
   }),
+
+  http.get("/api/pipeline-stats", async () => {
+  await simulateNetwork();
+  try {
+    const allApplications = await db.applications.toArray();
+
+    // Initialize counters for each stage
+    const stageCounts = {
+      applied: 0,
+      screening: 0,
+      interview: 0, // Assuming 'tech' and other interviews are grouped
+      offer: 0,
+      hired: 0,
+    };
+
+    // Aggregate counts from all applications
+    allApplications.forEach((app) => {
+      // Group multiple interview stages into one for the chart
+      if (app.stage.includes("interview") || app.stage === "tech") {
+        stageCounts.interview++;
+      } else if (stageCounts.hasOwnProperty(app.stage)) {
+        stageCounts[app.stage]++;
+      }
+    });
+
+    // Format the data for the frontend
+    const pipelineData = [
+      { stage: "applied", count: stageCounts.applied },
+      { stage: "screening", count: stageCounts.screening },
+      { stage: "interview", count: stageCounts.interview },
+      { stage: "offer", count: stageCounts.offer },
+      { stage: "hired", count: stageCounts.hired },
+    ];
+
+    return HttpResponse.json(pipelineData);
+  } catch (error) {
+    console.error("MSW Error (GET /api/pipeline-stats):", error);
+    return HttpResponse.json(
+      { message: "Failed to calculate pipeline stats" },
+      { status: 500 }
+    );
+  }
+}),
 ];
