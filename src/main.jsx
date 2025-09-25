@@ -17,9 +17,6 @@ async function enableMocking() {
 
   const { worker } = await import('./mocks/browser.js');
 
-  // We are now starting the worker in all environments.
-  // The 'onUnhandledRequest: 'bypass'' option is good practice,
-  // as it allows any real network requests (e.g., to load fonts) to pass through.
   return worker.start({
     serviceWorker: {
       url: '/mockServiceWorker.js',
