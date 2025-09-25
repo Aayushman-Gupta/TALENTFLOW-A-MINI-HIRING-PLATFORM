@@ -9,18 +9,18 @@
 ## 📖 Table of Contents
 1. [Project Overview](#-project-overview)
 2. [Core Philosophy](#-core-philosophy)
-3. [Tech Stack & Architecture](#-tech-stack--architecture)
+3. [Tech Stack & Frameworks](#-tech-stack--frameworks-used)
 4. [Features](#-features)
    - [Jobs Dashboard](#jobs-dashboard-dashboard)
    - [Job Detail Page](#job-detail-page-jobsjobid)
    - [Kanban Board](#kanban-board-jobsjobidkanban)
    - [Candidate Profile Page](#candidate-profile-page-candidatecandidateid)
    - [Assessment Module](#assessment-module)
-5. [Setup & Installation](#-setup--installation)
-6. [Project Structure](#-project-structure)
-7. [API Simulation](#-api-simulation-with-msw)
-8. [Comparison with Requirements](#-comparison-with-original-requirements)
-9. [Bonus Features](#-bonus-features--novelties)
+5. [Novel Features](#-novel-features)
+6. [Setup & Installation](#-setup--installation)
+7. [Project Structure](#-project-structure)
+8. [API Simulation](#-api-simulation-with-msw)
+9. [Comparison with Requirements](#-comparison-with-original-requirements)
 10. [Future Enhancements](#-future-enhancements)
 11. [Contributing](#-contributing)
 12. [License](#-license)
@@ -39,76 +39,154 @@ It enables HR teams to manage the full hiring pipeline:
 
 ## 💡 Core Philosophy
 
-- 100% **browser-based** app (no backend required)
-- **MSW** simulates REST API endpoints
-- **Dexie.js + IndexedDB** for persistent local storage
-- Fully interactive, scalable, and production-ready front-end demo
+- 100% **browser-based** app (no backend required)  
+- **MSW** simulates REST API endpoints  
+- **Dexie.js + IndexedDB** for persistent local storage  
+- Fully interactive, scalable, and production-ready front-end demo  
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## 🛠️ Tech Stack & Frameworks Used
 
-**Frontend:** React (with hooks, router, component-based UI)  
-**API Simulation:** MSW (Mock Service Worker)  
-**Database:** Dexie.js (IndexedDB wrapper)  
-**UI/UX:** TailwindCSS + Framer Motion  
-**Data Seeding:** Faker.js  
-**Drag-and-Drop:** dnd-kit  
-**Charts:** Recharts  
+### ⚛️ React.js
+- **Why:** Modern, component-based architecture that enables reusability and scalability.  
+- **How used:**  
+  - Built UI components like `JobCard`, `KanbanColumn`, `StatsCard`  
+  - State management via `useState`, `useEffect`, `useMemo`, `useCallback`  
+  - Routing handled by `react-router-dom`
 
-📌 **Architecture Flow**:
-- UI is completely decoupled from the data layer  
-- Mock API ensures realistic dev/test environment  
-- IndexedDB ensures persistence across sessions  
+---
+
+### 🛡️ MSW (Mock Service Worker)
+- **Why:** To simulate a real backend during development.  
+- **How used:**  
+  - Intercepts `fetch` requests and provides mock responses  
+  - Introduces **latency (200–1200ms)** and **error rate (5–10%)** for resilience testing  
+  - Connected with Dexie to provide **stateful API behavior**
+
+---
+
+### 🗄️ Dexie.js (IndexedDB wrapper)
+- **Why:** Persistent, client-side database with rich queries.  
+- **How used:**  
+  - Stores jobs, candidates, applications, assessments  
+  - Provides schema versioning for evolving data models  
+  - Ensures persistence across sessions without backend  
+
+---
+
+### 🎭 Faker.js
+- **Why:** To generate realistic seed data for prototyping.  
+- **How used:**  
+  - Auto-populates 25 jobs & 1000+ candidates on first load  
+  - Randomized applications for new job postings  
+
+---
+
+### 🎯 dnd-kit
+- **Why:** Accessible, lightweight, and flexible drag-and-drop library.  
+- **How used:**  
+  - Jobs Dashboard → Drag to reorder job cards  
+  - Kanban Board → Move candidates across stages  
+
+---
+
+### 📊 Recharts
+- **Why:** Declarative React-based charts for dashboards.  
+- **How used:**  
+  - Bar chart: Candidate distribution across stages  
+  - Donut chart: Pending vs. Completed assessments  
+
+---
+
+### 🎨 Framer Motion
+- **Why:** Adds smooth, professional animations.  
+- **How used:**  
+  - Animations for modals, transitions, and list reordering  
+  - Enhances perceived performance and polish  
+
+---
+
+### 💅 Tailwind CSS
+- **Why:** Utility-first CSS framework for rapid UI development.  
+- **How used:**  
+  - Consistent design system across all components  
+  - Responsive layouts and clean styling  
 
 ---
 
 ## ✨ Features
 
 ### 📊 Jobs Dashboard (`/dashboard`)
-- **Global Statistics Header** – Shows total jobs, candidates, applications, hires  
-- **Create New Job** – Modal form with validation  
-- **Automatic Application Seeding** – Faker.js auto-creates applications  
-- **Job List** – Paginated, sortable, draggable job cards  
-- **Filtering & Search** – Filter by status, search by title  
-- **Drag-and-Drop Reordering** – Order saved to DB  
-- **Navigation** – Each job card links to detailed view  
+- Global Statistics Header (Total Jobs, Candidates, Applications, Hires)  
+- Create New Job modal with validation  
+- Auto-seeded applications for realism  
+- Paginated & sortable job list  
+- Search + filter by status  
+- Drag-and-drop job reordering (saved in DB)  
 
 ---
 
 ### 📌 Job Detail Page (`/jobs/:jobId`)
-- **Multi-Column Dashboard Layout**  
-- **Candidate Pipeline Chart** – Bar chart of candidates by stage  
-- **Assessment Stats Chart** – Donut chart of assessment status  
-- **Action Panel** – Quick links: Applications, Kanban, Assessment, Edit, Archive  
+- Multi-column dashboard layout  
+- Candidate pipeline bar chart  
+- Assessment stats donut chart  
+- Action Panel: View Applications, Kanban, Build Assessment, Edit, Archive  
 
 ---
 
 ### 🗂️ Kanban Board (`/jobs/:jobId/kanban`)
-- **Stage Columns** – Applied → Screening → Tech → Offer → Hired/Rejected  
-- **Draggable Candidate Cards** – Move candidates between stages  
-- **Visual Assessment Status** – Pending = ⏳, Submitted = ✅  
-- **Constraints**:
-  - **Assessment Lock** – Cannot move candidate if pending assessment  
-  - **No Backward Moves** – Except to "Rejected" stage  
-- **Real-time Sync** – State updates instantly in UI  
+- Stage-based columns (Applied → Screening → Tech → Offer → Hired/Rejected)  
+- Drag-and-drop candidate cards  
+- Visual indicators for assessments (Pending ⏳, Submitted ✅)  
+- Real-time updates synced to Dexie  
 
 ---
 
 ### 👤 Candidate Profile Page (`/candidate/:candidateId`)
-- **Timeline View** – Track candidate’s journey through stages  
-- **Assessment Timing Tooltip** – Shows exact start, end, and duration  
-- **Assessment Control** – Only enabled during Tech Interview stage  
+- Timeline of stage progression  
+- Assessment timing tooltip (start, end, duration)  
+- Assessment button enabled only in Tech Interview stage  
 
 ---
 
 ### 📝 Assessment Module
-- **Assessment Builder** – Add sections, multiple question types  
-- **Live Preview** – Right-side preview of assessment form  
-- **Validation Rules** – Required fields, numeric ranges, conditional questions  
-- **Automated Status Tracking**:
-  - Candidate enters Tech stage → Assessment set to "pending"  
-  - On submission → Status updates to "submitted"  
+- Builder with multiple question types (MCQ, Text, Numeric, File Upload)  
+- Live preview of assessment form  
+- Validation: required fields, ranges, conditionals  
+- Automated status updates:  
+  - Enter Tech stage → Pending assessment  
+  - Submit assessment → Status = Submitted  
+
+---
+
+## 🌟 Novel Features
+
+Beyond the required features, **extra functionalities** were implemented:  
+
+- **Assessment Lock (Critical Constraint 1)**  
+  - Candidate **cannot be moved out of Tech stage if assessment is pending**  
+  - Prevents breaking workflow rules  
+
+- **No Backward Moves (Critical Constraint 2)**  
+  - Candidates cannot be moved back to previous stages  
+  - Only exception: moving to "Rejected"  
+
+- **Automated Workflow Triggers**  
+  - Entering Tech Interview stage → Creates pending assessment + starts timer  
+  - Assessment submission → Updates candidate & assessment tables instantly  
+
+- **Real-Time UI Sync**  
+  - Assessment status updates instantly in UI without refresh  
+  - Kanban & Candidate Profile remain consistent  
+
+- **Advanced Dashboards**  
+  - Data-rich statistics on dashboard & job detail page  
+
+- **UI/UX Polish**  
+  - Smooth animations via Framer Motion  
+  - Tooltips for timelines & statuses  
+  - Consistent, professional Tailwind design system  
 
 ---
 
