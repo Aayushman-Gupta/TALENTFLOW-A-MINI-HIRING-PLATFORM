@@ -194,7 +194,7 @@ Beyond the required features, **extra functionalities** were implemented:
 
 ```bash
 # Clone repo
-git clone https://github.com/<your-username>/talentflow.git
+git clone https://github.com/Aayushman-Gupta/talentflow.git
 cd talentflow
 
 # Install dependencies
